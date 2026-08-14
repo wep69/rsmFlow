@@ -1,0 +1,82 @@
+---
+title: "State of the art, ecosystem position, and validation tiers"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{State of the art, ecosystem position, and validation tiers}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+bibliography: references.bib
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(collapse=TRUE,comment="#>")
+library(rsmFlow)
+```
+
+## Scope and gap
+
+`rsmFlow` does not claim that R lacks classical response-surface methodology. The classical `rsm` ecosystem already provides established polynomial RSM, coding, CCD/Box-Behnken construction, canonical analysis, steepest ascent and ridge workflows [@Lenth2009]. The package gap addressed here is integration: design-quality diagnostics for imperfect/non-orthogonal experiments, classical and generalized response surfaces, nonlinear agronomic surfaces, global optimization, uncertainty of optimum coordinates, near-optimal/economic decisions, and explicit Tier-3 surrogates within one auditable API.
+
+Mixture experiments remain outside scope.
+
+## Why generalized response surfaces?
+
+For two quantitative factors, a GLM can retain the second-order response-surface predictor while using a response distribution/link compatible with counts, proportions or positive asymmetric responses. `rsmFlow` therefore supports Gaussian, Poisson/quasi-Poisson, binomial/quasi-binomial, Gamma, inverse-Gaussian and optional negative-binomial surfaces. Optimization is performed on the response scale by default, and quasi families are not ranked with ordinary likelihood AIC/BIC.
+
+### Workflow example 1: count response
+
+```{r}
+set.seed(401)
+d <- expand.grid(Dose=seq(-1,1,length.out=7),Day=seq(-1,1,length.out=7))
+d$Insects <- rpois(nrow(d),exp(2-.25*d$Dose^2-.15*d$Day^2+.10*d$Dose*d$Day))
+g <- rsm_glm_fit(d,"Insects",c("Dose","Day"),family=poisson())
+rsm_glm_dispersion(g)
+rsm_optimize(g,"min","L-BFGS-B")
+```
+
+## Why nonlinear two-factor surfaces?
+
+Agricultural dose-response literature has explicitly documented cases where conventional second-order polynomial surfaces showed unacceptable lack of fit and where multifactor Mitscherlich/Gompertz alternatives were developed [@Landes1999]. Later work continued the comparison of nonlinear dose-response models and experimental-design strategies [@Frenzel2010]. This motivates the built-in Mitscherlich, Gompertz, Michaelis-Menten, asymptotic, Hoerl and plateau candidates in `rsmFlow`, without implying universal superiority.
+
+### Workflow example 2: nonlinear saturation with GA initialization
+
+```{r, eval=requireNamespace("GA",quietly=TRUE)}
+set.seed(402)
+n <- expand.grid(N=seq(10,160,length.out=7),P=seq(5,90,length.out=7))
+n$Yield <- 11*(1-exp(-.025*n$N))*(1-exp(-.04*n$P)) + rnorm(nrow(n),0,.08)
+fit_nl <- rsm_nonlinear_fit(n,"Yield",c("N","P"),
+  model="mitscherlich2_product",start="ga",
+  start_control=list(popSize=30,maxiter=60,run=20),engine="nls")
+rsm_nonlinear_diagnostics(fit_nl)
+rsm_optimize(fit_nl,"max","L-BFGS-B")
+```
+
+GA is an initialization engine here. The final nonlinear estimator remains `nlsLM`, `nls`, or `gnls`.
+
+## Tier 3 and sequential experimentation
+
+Tier 3 is deliberately opt-in. It includes generalized nonlinear least squares, Gaussian processes, GAM/thin-plate smooths, random forests, neural networks, and one-step expected-improvement Bayesian optimization. Expected-improvement workflows are rooted in surrogate-based global optimization [@JonesSchonlauWelch1998]. `rsm_bayes_opt()` proposes the next run only; the package does not invent the response that would be observed at that run.
+
+### Workflow example 3: explicit Tier-3 alternative
+
+```{r, eval=requireNamespace("mgcv",quietly=TRUE)}
+set.seed(403)
+s <- data.frame(x1=runif(70,-1,1),x2=runif(70,-1,1))
+s$y <- sin(2*s$x1)+cos(2*s$x2)+rnorm(70,0,.05)
+gam_fit <- rsm_surrogate(s,"y",c("x1","x2"),method="gam")
+rsm_surrogate_optimize(gam_fit,"max")
+```
+
+## Validation tiers
+
+The package uses validation tiers rather than automatic model escalation.
+
+- **Tier 1:** classical design-aware Gaussian RSM and design geometry.
+- **Tier 2:** GLM-RSM, nonlinear response surfaces, GA optimization/initialization, multiple-response and economic decision tools.
+- **Tier 3:** `gnls`, GP, GAM/TPS, random forest, neural network and Bayesian next-run recommendation.
+
+A Tier-3 model is not selected solely because it lowers RMSE or AIC. Scientific support, experimental design, convergence, diagnostics, predictive behavior, uncertainty and stability of the operational optimum remain part of the decision.
+
+## Reproducibility status
+
+The development source contains testthat tests and frozen simulation scenarios. Runtime numerical claims remain pending until the package is parsed, built, checked and the frozen simulation battery is executed in an R environment. See `VALIDATION_STATUS.md` and `scripts/SIMULATION_BATTERY.R` in the source tree.

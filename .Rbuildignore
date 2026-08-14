@@ -1,0 +1,4 @@
+^rsmFlow.*\.tar\.gz$
+^validation$
+^dist$
+^\.github$

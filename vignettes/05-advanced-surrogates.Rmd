@@ -1,0 +1,43 @@
+---
+title: "Advanced surrogates, structured validation and sequential optimization"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Advanced surrogates and sequential optimization}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+A quadratic response surface remains the default because its coefficients, stationary point and canonical geometry are directly interpretable. Advanced surrogates are an expert layer for cases where lack of fit, residual structure, or scientific knowledge indicates that a quadratic polynomial is inadequate.
+
+```{r, eval=FALSE}
+gp  <- rsm_surrogate(dat, "Yield", c("N","K","Irrigation"), method="gp")
+gam <- rsm_surrogate(dat, "Yield", c("N","K","Irrigation"), method="gam")
+rf  <- rsm_surrogate(dat, "Yield", c("N","K","Irrigation"), method="rf")
+```
+
+Gaussian-process models use `DiceKriging`; GAM/TPS models use `mgcv`; random forests use `ranger`; neural networks use `nnet`. These engines are optional and are not automatically selected merely because they improve an in-sample criterion.
+
+Sequential Bayesian optimization is exposed as a next-run recommendation, following the expected-improvement logic established for efficient global optimization [@JonesSchonlauWelch1998]. The observed experiment is first used to fit a Gaussian process. Expected improvement then ranks candidate factor combinations.
+
+```{r, eval=FALSE}
+next_run <- rsm_bayes_opt(
+  dat, "Yield", c("N","K","Irrigation"),
+  goal="max", n_candidates=20000
+)
+next_run$next_point
+```
+
+The function does not invent the response at the proposed point. The experiment must be run, the observation appended, and the model updated before another sequential recommendation.
+
+For validation, random row-wise cross-validation is not treated as universally appropriate for designed experiments. Blocks, experimental units, or repeated structures can be held together with `group=`.
+
+```{r, eval=FALSE}
+rsm_cv(fit, folds=5, group="Block")
+```
+
+When optimum bootstrap samples are available, stability can be summarized in factor-range standardized coordinates.
+
+```{r, eval=FALSE}
+unc <- rsm_optimum_ci(fit, B=999)
+rsm_optimum_stability(unc, fit, tolerance=.10)
+```

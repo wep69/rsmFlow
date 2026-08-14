@@ -1,0 +1,53 @@
+capability,engine,tier,status,notes
+hierarchical_quadratic,lm,1,implemented,Core design-aware polynomial model for 2+ factors
+nonorthogonal_design_audit,rsmFlow,1,implemented,Rank conditioning VIF correlation prediction variance aliasing
+fds_curve,rsmFlow,1,implemented,Empirical fraction-of-design-space curve
+vdg,rsmFlow,1,implemented,Variance dispersion by standardized radius
+design_augmentation,rsmFlow,1,implemented,D A I G and conditioning objectives
+lack_of_fit,rsmFlow,1,implemented,Replicated factor combinations; model-specific implementations
+canonical_analysis,rsmFlow,1,implemented,Polynomial 2+ factors and response-scale GLM 2-factor classification
+bounded_optimization,optim,1,implemented,L-BFGS-B within declared region
+glm_rsm,stats::glm,2,implemented,Two-factor Gaussian Poisson quasi-Poisson binomial quasi-binomial Gamma inverse-Gaussian
+negative_binomial_rsm,MASS::glm.nb,2,implemented_optional,Two-factor negative-binomial response surface
+glm_dispersion,rsmFlow,2,implemented,Pearson dispersion and deviance summaries
+glm_lack_of_fit,rsmFlow,2,implemented,Replicated-cell reference with chi-square/F approximation
+nonlinear_rsm,rsmFlow,2,implemented,Two-factor nonlinear model registry and custom formulas
+mitscherlich2,rsmFlow,2,implemented,Product and offset variants
+gompertz2,rsmFlow,2,implemented,Product saturation
+michaelis_menten2,rsmFlow,2,implemented,Product saturation
+asymptotic2,rsmFlow,2,implemented,Additive asymptotic response
+hoerl2,rsmFlow,2,implemented,Two-factor Hoerl surface
+plateau2,rsmFlow,2,implemented,Increasing linear plateau and smooth quadratic plateau variants
+ga_parameter_start,GA,2,implemented_optional,GA searches nonlinear initial parameter values only
+random_multistart,rsmFlow,2,implemented,Bounded fallback or explicit option
+nls_backend,stats::nls,2,implemented,PORT bounded nonlinear least squares
+nlslm_backend,minpack.lm,2,implemented_optional,Levenberg-Marquardt nonlinear least squares
+gnls_backend,nlme,3,implemented_optional,Nonlinear GLS with variance/correlation structures
+nonlinear_identifiability,rsmFlow,2,implemented,Numerical Jacobian singular values and parameter correlations
+genetic_algorithm,GA,2,implemented_optional,Global response optimization
+hybrid_optimization,GA+optim,2,implemented_optional,Global plus local refinement
+optimum_bootstrap,rsmFlow,1,implemented,Model-aware residual/parametric/case refit and reoptimization
+joint_optimum_region,rsmFlow,1,implemented,Approximate bootstrap covariance region
+near_optimal_region,rsmFlow,1,implemented,Tolerated fitted-response loss
+optimum_stability,rsmFlow,1,implemented,Standardized coordinate and response-loss summaries
+confidence_bound_optimization,rsmFlow,2,implemented,Uses prediction SE when available
+desirability,rsmFlow,1,implemented,Multiple responses
+weighted_compromise,rsmFlow,2,implemented,Normalized utilities
+distance_to_target,rsmFlow,2,implemented,Weighted distance in utility space
+epsilon_constraint,rsmFlow,2,implemented,Primary response under thresholds
+pareto_sample,rsmFlow,2,implemented,Approximate nondominated set
+pareto_nsga2,mco,2,implemented_optional,NSGA-II backend
+robust_regression,MASS,2,implemented_optional,Explicit sensitivity fit
+heteroscedastic_wls,rsmFlow,2,implemented,Feasible power-variance weighting
+structured_cross_validation,rsmFlow,2,implemented,Gaussian GLM and nonlinear refitting with optional groups
+gp_surrogate,DiceKriging,3,implemented_optional,Gaussian-process surrogate
+gam_tps_surrogate,mgcv,3,implemented_optional,GAM/thin-plate surrogate
+random_forest_surrogate,ranger,3,implemented_optional,Expert predictive surrogate
+neural_network_surrogate,nnet,3,implemented_optional,Expert predictive surrogate
+bayesian_optimization,DiceKriging,3,implemented_optional,One-step expected-improvement recommendation
+economic_optimum,rsmFlow,2,implemented,Compatible Gaussian GLM nonlinear and surrogate predictions
+engine_comparison,rsmFlow,2,implemented,RMSE MAE likelihood criteria where valid convergence
+advanced_visualization,ggplot2+rsmFlow,1,implemented,Surfaces profiles perturbation and design-specific diagnostics
+interactive_graphics,plotly,2,implemented_optional,Interactive surfaces
+shiny_interface,shiny,2,implemented_optional,Thin UI over package API
+mixture_experiments,,excluded,excluded,Deliberately outside package scope

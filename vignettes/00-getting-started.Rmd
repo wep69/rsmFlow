@@ -1,0 +1,44 @@
+---
+title: "Getting started with rsmFlow"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Getting started with rsmFlow}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+bibliography: references.bib
+---
+
+`rsmFlow` treats response-surface analysis as a workflow connecting experimental design, model adequacy, geometry of the fitted surface, optimization, uncertainty, and decision support. The package does not implement mixture experiments.
+
+```{r, eval=FALSE}
+library(rsmFlow)
+dat <- read.csv(system.file("extdata", "agronomy_rsm_nonorthogonal.csv", package="rsmFlow"))
+fit <- rsm_fit(dat, "Yield", c("N", "K", "Irrigation"), order=2)
+summary(fit)
+rsm_design_audit(fit)
+rsm_diagnostics(fit)
+rsm_lack_of_fit(fit)
+```
+
+For a second-order surface, canonical analysis writes the fitted polynomial conceptually as
+
+\[
+\widehat y(\mathbf x)=\widehat\beta_0+\mathbf b^\top\mathbf x+\mathbf x^\top B\mathbf x,
+\]
+
+with stationary point
+
+\[
+\mathbf x_s=-\frac{1}{2}B^{-1}\mathbf b.
+\]
+
+The eigenvalues of \(B\) distinguish maxima, minima, saddle systems, and nearly flat or ridge directions. `rsmFlow` reports whether the stationary point lies inside the declared experimental region and does not equate a saddle point with an optimum.
+
+```{r, eval=FALSE}
+ca <- rsm_canonical(fit)
+opt <- rsm_optimize(fit, goal="max", method="hybrid")
+ci <- rsm_optimum_ci(fit, opt, B=999, method="residual")
+near <- rsm_near_optimal(fit, opt, tolerance=.05)
+```
+
+The package is designed to complement, not replace, the established `rsm` package and its classical RSM implementation [@Lenth2009].

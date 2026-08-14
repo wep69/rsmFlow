@@ -1,0 +1,95 @@
+---
+title: "Two-factor nonlinear response surfaces and GA initialization"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Two-factor nonlinear response surfaces and GA initialization}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(collapse=TRUE,comment="#>")
+library(rsmFlow)
+```
+
+## Scope
+
+`rsm_nonlinear_fit()` is intended for two quantitative factors when a scientifically meaningful nonlinear surface is preferable to a polynomial approximation. Built-in structures are listed by:
+
+```{r}
+rsm_nonlinear_models()
+```
+
+Parameter initialization is separated from final fitting. `start="ga"` searches declared parameter bounds by minimizing residual sum of squares, then passes the best parameter vector to `nlsLM`, `nls`, or `gnls`. This prevents GA from being confused with the final inferential estimator.
+
+## Example 1: Mitscherlich product with GA starting values
+
+For positive factors, the built-in product form is
+
+\[
+\mu=A\{1-e^{-k_1x_1}\}\{1-e^{-k_2x_2}\}.
+\]
+
+```{r eval=requireNamespace("GA",quietly=TRUE)}
+set.seed(201)
+d <- expand.grid(N=seq(10,180,length.out=8),P=seq(5,100,length.out=7))
+d$Yield <- 12*(1-exp(-.025*d$N))*(1-exp(-.04*d$P)) + rnorm(nrow(d),0,.12)
+fit_m <- rsm_nonlinear_fit(d,"Yield",c("N","P"),model="mitscherlich2_product",
+  start="ga",start_control=list(popSize=35,maxiter=80,run=25),engine="nls")
+fit_m$start_search$start
+rsm_nonlinear_diagnostics(fit_m)
+rsm_optimize(fit_m,"max","hybrid")
+```
+
+## Example 2: Michaelis-Menten with random multistart
+
+\[
+\mu=A\frac{x_1}{K_1+x_1}\frac{x_2}{K_2+x_2}.
+\]
+
+```{r}
+set.seed(202)
+d$Uptake <- 15*d$N/(35+d$N)*d$P/(22+d$P) + rnorm(nrow(d),0,.10)
+fit_mm <- rsm_nonlinear_fit(d,"Uptake",c("N","P"),model="michaelis_menten2",
+  start="multistart",n_start=150,engine="nls")
+rsm_nonlinear_diagnostics(fit_mm)
+rsm_near_optimal(fit_mm,tolerance=.05)
+```
+
+## Example 3: custom nonlinear model
+
+A custom formula is allowed when parameter bounds or explicit starts are supplied.
+
+```{r}
+custom_formula <- Yield ~ A*(1-exp(-kN*N))*exp(-qP*(P-P0)^2)
+fit_custom <- rsm_nonlinear_fit(d,"Yield",c("N","P"),model="custom",
+  formula=custom_formula,
+  start=c(A=12,kN=.02,qP=.0002,P0=60),
+  engine="nls")
+rsm_plot(fit_custom,"contour")
+```
+
+## Parameter identifiability
+
+Nonlinear convergence alone is not sufficient evidence that parameter estimates are stable. `rsm_nonlinear_diagnostics()` reports the singular values and condition number of a numerical prediction Jacobian, parameter correlations when a covariance matrix is available, convergence status, fit measures, and the initial-value search engine.
+
+## Generalized nonlinear least squares
+
+Tier 3 includes `nlme::gnls()` for nonlinear responses with unequal variance and/or correlated errors. Variance structures are explicit rather than automatically inferred.
+
+```{r eval=requireNamespace("nlme",quietly=TRUE)}
+fit_gnls <- rsm_nonlinear_fit(d,"Uptake",c("N","P"),model="michaelis_menten2",
+  start=c(A=15,K1=35,K2=22),engine="gnls",variance="power")
+summary(fit_gnls)
+```
+
+## Optimum uncertainty and economics
+
+```{r eval=FALSE}
+unc <- rsm_optimum_ci(fit_mm,B=999,method="parametric")
+
+For ordinary homoscedastic `nls`/`nlsLM` fits, this parametric workflow simulates Gaussian response error, refits, and reoptimizes. For `gnls`, where fitted variance and correlation structures can be substantially richer, the current development version defaults to asymptotic coefficient simulation unless a future backend implements full structure-aware response simulation.
+eco <- rsm_economic_optimum(fit_mm,response_price=1200,factor_cost=c(N=5.5,P=6.0))
+```
+
+For nonlinear surfaces the bootstrap refits the nonlinear model in each replicate and records failures. Failed convergence is therefore visible in `B_valid` and `failures` rather than being silently discarded from the audit trail.

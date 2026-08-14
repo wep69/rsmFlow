@@ -1,0 +1,57 @@
+Package: rsmFlow
+Type: Package
+Title: Design-Aware Response Surface Modelling, Optimization and Decision Support
+Version: 0.2.0
+Authors@R: c(
+    person(given = c("Walter", "Esfrain"), family = "Pereira",
+           email = "walterufpb@yahoo.com.br", role = c("aut", "cre", "cph"),
+           comment = c(ORCID = "0000-0003-1085-0191")),
+    person(given = c("Magali", "Haidee"), family = "Pereira Martinez",
+           role = "aut",
+           comment = c(ORCID = "0009-0009-5419-959X"))
+  )
+Description: A design-aware workflow for response surface methodology with two or more
+    quantitative factors. The package integrates response-surface fitting, diagnostics of
+    non-orthogonal and imperfect designs, canonical analysis, steepest ascent/descent,
+    ridge analysis, constrained and global optimization, genetic algorithms, uncertainty
+    quantification for optima, near-optimal regions, multiple-response desirability and
+    Pareto analysis, design augmentation, economic optimum calculations, and static or
+    interactive graphics. It additionally supports two-factor generalized response surfaces
+    using generalized linear models, two-factor nonlinear agronomic response surfaces with
+    genetic-algorithm or multistart parameter initialization, generalized nonlinear least
+    squares, and expert Tier-3 surrogates including Gaussian processes, GAM/thin-plate
+    smooths, random forests, neural networks, and one-step Bayesian optimization. Mixture
+    experiments are deliberately outside scope. The core scientific API is independent of
+    the optional Shiny interface.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Depends: R (>= 4.2.0)
+Imports:
+    stats,
+    graphics,
+    grDevices,
+    utils
+Suggests:
+    rsm,
+    GA,
+    ggplot2,
+    plotly,
+    shiny,
+    testthat (>= 3.0.0),
+    knitr,
+    rmarkdown,
+    MASS,
+    nloptr,
+    AlgDesign,
+    vdg,
+    OptimaRegion,
+    desirability2,
+    DiceKriging,
+    mgcv,
+    ranger,
+    nnet,
+    mco,
+    minpack.lm,
+    nlme
+VignetteBuilder: knitr
+Config/testthat/edition: 3

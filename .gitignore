@@ -1,0 +1,9 @@
+*.tar.gz
+*.Rcheck/
+.Rhistory
+.RData
+inst/doc/*.html
+inst/doc/*.R
+inst/doc/*.Rmd
+src/*.o
+src/*.dll

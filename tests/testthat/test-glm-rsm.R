@@ -1,0 +1,61 @@
+test_that("Poisson GLM-RSM fits and optimizes on response scale", {
+  set.seed(1001)
+  d <- expand.grid(x1=seq(-1,1,length.out=7),x2=seq(-1,1,length.out=7))
+  mu <- exp(2 + .2*d$x1 - .15*d$x2 - .25*d$x1^2 - .2*d$x2^2)
+  d$y <- rpois(nrow(d),mu)
+  f <- rsm_glm_fit(d,"y",c("x1","x2"),family=poisson())
+  expect_s3_class(f,"rsmFlow_glm")
+  expect_equal(length(predict(f,d[1:3,])),3)
+  dg <- rsm_glm_dispersion(f)
+  expect_true(is.finite(dg$pearson_dispersion))
+  op <- rsm_optimize(f,"max","L-BFGS-B")
+  expect_true(all(op$solution >= f$bounds$lower & op$solution <= f$bounds$upper))
+})
+
+test_that("Binomial and Gamma GLM-RSM support response-scale prediction", {
+  set.seed(1002)
+  d <- expand.grid(x1=seq(-1,1,length.out=6),x2=seq(-1,1,length.out=6))
+  d$n <- 25
+  pr <- plogis(-.3+.6*d$x1-.4*d$x2-.3*d$x1^2)
+  d$s <- rbinom(nrow(d),d$n,pr); d$p <- d$s/d$n
+  fb <- rsm_glm_fit(d,"p",c("x1","x2"),family=binomial(),weights=d$n)
+  expect_true(all(predict(fb,d,type="response") >= 0 & predict(fb,d,type="response") <= 1))
+  mg <- exp(1+.15*d$x1-.1*d$x2-.12*d$x1^2)
+  d$g <- rgamma(nrow(d),shape=8,scale=mg/8)
+  fg <- rsm_glm_fit(d,"g",c("x1","x2"),family=Gamma(link="log"))
+  expect_true(all(predict(fg,d,type="response") > 0))
+})
+
+test_that("Negative-binomial GLM-RSM is available when MASS is installed", {
+  skip_if_not_installed("MASS")
+  set.seed(1003)
+  d <- expand.grid(x1=seq(-1,1,length.out=6),x2=seq(-1,1,length.out=6))
+  d$y <- MASS::rnegbin(nrow(d),mu=exp(2-.2*d$x1^2-.15*d$x2^2),theta=2)
+  f <- rsm_glm_fit(d,"y",c("x1","x2"),family="negative_binomial")
+  expect_s3_class(f,"rsmFlow_glm")
+  expect_true(inherits(f$model,"negbin"))
+})
+
+test_that("GLM offsets are formula-encoded and use a declared reference for prediction", {
+  set.seed(1004)
+  d <- expand.grid(x1=seq(-1,1,length.out=6),x2=seq(-1,1,length.out=6))
+  d$exposure <- rep(c(.5,1,2),length.out=nrow(d))
+  rate <- exp(1.5-.2*d$x1^2-.1*d$x2^2)
+  d$y <- rpois(nrow(d),d$exposure*rate)
+  f <- rsm_glm_fit(d,"y",c("x1","x2"),family=poisson(),offset=log(d$exposure),offset_reference=0)
+  pr <- predict(f,d[1:3,c("x1","x2")],type="response")
+  expect_equal(length(pr),3)
+  expect_true(all(pr>0))
+  expect_true(isTRUE(f$offset_used))
+})
+
+test_that("quasi-family optimum uncertainty uses coefficient simulation by default", {
+  set.seed(1005)
+  d <- expand.grid(x1=seq(-1,1,length.out=7),x2=seq(-1,1,length.out=7))
+  d$y <- rpois(nrow(d), exp(2-.2*d$x1^2-.15*d$x2^2))
+  f <- rsm_glm_fit(d,"y",c("x1","x2"),family=quasipoisson())
+  u <- rsm_optimum_ci(f,B=35,optimizer="L-BFGS-B",seed=15)
+  expect_equal(u$method,"coefficient")
+  expect_gt(u$B_valid,0)
+  expect_error(rsm_optimum_ci(f,B=35,method="parametric"),"quasi")
+})

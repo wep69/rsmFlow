@@ -1,0 +1,9 @@
+citHeader("To cite rsmFlow in publications, use:")
+
+bibentry(
+  bibtype = "Manual",
+  title = "rsmFlow: Design-Aware Response Surface Modelling, Optimization and Decision Support",
+  author = person("Walter E.", "Pereira"),
+  year = "2026",
+  note = "R package version 0.2.0 (development snapshot)"
+)

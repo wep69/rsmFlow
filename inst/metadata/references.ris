@@ -1,0 +1,99 @@
+TY  - JOUR
+AU  - Lenth, Russell V.
+TI  - Response-Surface Methods in R, Using rsm
+JO  - Journal of Statistical Software
+PY  - 2009
+VL  - 32
+IS  - 7
+SP  - 1
+EP  - 17
+DO  - 10.18637/jss.v032.i07
+ER  -
+
+TY  - JOUR
+AU  - Box, G. E. P.
+AU  - Draper, Norman R.
+TI  - A Basis for the Selection of a Response Surface Design
+JO  - Journal of the American Statistical Association
+PY  - 1959
+VL  - 54
+IS  - 287
+SP  - 622
+EP  - 654
+DO  - 10.1080/01621459.1959.10501525
+ER  -
+
+TY  - JOUR
+AU  - O'Driscoll, Diarmuid
+AU  - Ramirez, Donald E.
+TI  - Response surface designs using the generalized variance inflation factors
+JO  - Cogent Mathematics
+PY  - 2015
+VL  - 2
+IS  - 1
+SP  - 1053728
+DO  - 10.1080/23311835.2015.1053728
+ER  -
+
+TY  - JOUR
+AU  - Wan, Fang
+AU  - Liu, Wei
+AU  - Bretz, Frank
+AU  - Han, Yang
+TI  - Confidence sets for optimal factor levels of a response surface
+JO  - Biometrics
+PY  - 2016
+VL  - 72
+IS  - 4
+SP  - 1285
+EP  - 1293
+DO  - 10.1111/biom.12500
+ER  -
+
+TY  - JOUR
+AU  - Derringer, George
+AU  - Suich, Ronald
+TI  - Simultaneous Optimization of Several Response Variables
+JO  - Journal of Quality Technology
+PY  - 1980
+VL  - 12
+IS  - 4
+SP  - 214
+EP  - 219
+DO  - 10.1080/00224065.1980.11980968
+ER  -
+
+TY  - JOUR
+AU  - Jones, Donald R.
+AU  - Schonlau, Matthias
+AU  - Welch, William J.
+TI  - Efficient Global Optimization of Expensive Black-Box Functions
+JO  - Journal of Global Optimization
+PY  - 1998
+VL  - 13
+IS  - 4
+SP  - 455
+EP  - 492
+DO  - 10.1023/A:1008306431147
+ER  -
+
+TY  - CONF
+AU  - Landes, R. D.
+AU  - Stroup, W. W.
+AU  - Paparozzi, E. T.
+AU  - Conley, M. E.
+TI  - NONLINEAR MODELS FOR MULTI-FACTOR PLANT NUTRITION EXPERIMENTS
+T2  - Conference on Applied Statistics in Agriculture
+PY  - 1999
+DO  - 10.4148/2475-7772.1263
+ER  -
+
+TY  - CONF
+AU  - Frenzel, M. J.
+AU  - Stroup, W. W.
+AU  - Paparozzi, E. T.
+TI  - AFTER FURTHER REVIEW: AN UPDATE ON MODELING AND DESIGN STRATEGIES FOR AGRICULTURAL DOSE-RESPONSE EXPERIMENTS
+T2  - Conference on Applied Statistics in Agriculture
+PY  - 2010
+DO  - 10.4148/2475-7772.1070
+ER  -
