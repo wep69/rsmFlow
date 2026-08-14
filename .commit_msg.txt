@@ -1,0 +1,16 @@
+rsmFlow 0.2.0: initial release with bugfixes and validation
+
+Bugfixes:
+- Fix weights closure bug in nonlinear.R (nls/nlsLM scoping issue)
+- Fix GAM k parameter overflow in surrogate.R
+- Fix nnet duplicate size argument in surrogate.R
+- Fix CV droplevels in z_generic.R
+
+Other changes:
+- Update AUTHORS with ORCIDs from agriRank
+- Add installation instructions (remotes::install_github)
+- Add pre-built vignettes for separate download
+
+Validation results:
+- 0 ERRORs on win-builder (R-devel + R-release) and macbuilder
+- 53 exported functions, 23 S3 methods, 9 test files, 11 vignettes

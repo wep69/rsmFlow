@@ -48,6 +48,13 @@ The 11 vignettes are available for separate download:
 | 09 | [Engine comparison](vignettes/09-engine-comparison.html) | Comparing fitting engines |
 | 10 | [State of the art](vignettes/10-state-of-the-art.html) | Comprehensive tutorial |
 
+## Cheatsheets
+
+| Cheatsheet | Description | Download |
+|------------|-------------|----------|
+| [rsmFlow Cheatsheet EN](https://github.com/wep69/rsmFlow/releases/download/v0.2.0/rsmFlow_Cheatsheet_EN.pdf) | Single-page quick reference | [PDF](https://github.com/wep69/rsmFlow/releases/download/v0.2.0/rsmFlow_Cheatsheet_EN.pdf) |
+| [rsmFlow Cheatsheet 10 pages](https://github.com/wep69/rsmFlow/releases/download/v0.2.0/rsmFlow_Cheatsheet_10pages_EN_Image20.pdf) | Extended 10-page reference with examples | [PDF](https://github.com/wep69/rsmFlow/releases/download/v0.2.0/rsmFlow_Cheatsheet_10pages_EN_Image20.pdf) |
+
 ## What is integrated
 
 1. CCD, Box-Behnken, custom, D-/I-optimal design entry points.
