@@ -32,7 +32,22 @@ install.packages("rsmFlow_0.2.0.tar.gz", repos = NULL, type = "source")
 
 ## Vignettes
 
-All 12 vignettes are available as `.Rmd` source files in the `vignettes/` directory. Compile them locally with `rmarkdown::render()`.
+The 12 vignettes are available for online viewing:
+
+| # | Vignette | Description |
+|---|----------|-------------|
+| 00 | [Getting started](vignettes_html/00-getting-started.html) | Overview and basic workflow |
+| 01 | [Non-orthogonal designs](vignettes_html/01-nonorthogonal-designs.html) | Design audit and diagnostics |
+| 02 | [Optimization & uncertainty](vignettes_html/02-optimization-uncertainty.html) | Optimization with confidence intervals |
+| 03 | [Multi-response economics](vignettes_html/03-multiresponse-economics.html) | Desirability and Pareto analysis |
+| 04 | [Graphics & teaching](vignettes_html/04-graphics-teaching.html) | Static and interactive plots |
+| 05 | [Advanced surrogates](vignettes_html/05-advanced-surrogates.html) | GP, GAM, RF, NN surrogates |
+| 06 | [GLM response surfaces](vignettes_html/06-glm-response-surfaces.html) | Two-factor GLM-RSM |
+| 07 | [Nonlinear response surfaces](vignettes_html/07-nonlinear-response-surfaces.html) | Two-factor nonlinear models |
+| 08 | [Tier-3 integrated](vignettes_html/08-tier3-integrated.html) | Advanced model integration |
+| 09 | [Engine comparison](vignettes_html/09-engine-comparison.html) | Comparing fitting engines |
+| 10 | [State of the art](vignettes_html/10-state-of-the-art.html) | Comprehensive tutorial |
+| 11 | [Integrated tutorial](vignettes_html/11-integrated-tutorial.html) | Complete workflow from RSM to surrogates |
 
 ## What is integrated
 
