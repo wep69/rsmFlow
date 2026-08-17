@@ -1,0 +1,284 @@
+---
+title: "rsmFlow in Practice"
+subtitle: "From Classical RSM to Advanced Surrogates"
+author: "Walter Esfrain Pereira"
+date: last-modified
+output:
+  rmarkdown::html_vignette:
+    toc: true
+    toc_depth: 3
+    number_sections: true
+vignette: >
+  %\VignetteIndexEntry{rsmFlow in Practice}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+```{r library}
+library(rsmFlow)
+packageVersion("rsmFlow")
+```
+
+# Introduction {.unnumbered}
+
+::: {.callout-note}
+## What is rsmFlow?
+
+The `rsmFlow` package provides a **design-aware response-surface workflow** for teaching and advanced scientific use.
+:::
+
+This tutorial walks through **five scientific scenarios**:
+
+1. **Classical RSM** — polynomial surface, canonical analysis, optimization
+2. **Optimization and uncertainty** — near-optimal regions, economic optimum
+3. **GLM-RSM** — Poisson, Binomial, Gamma responses
+4. **Nonlinear surfaces** — Mitscherlich, Michaelis-Menten with GA initialization
+5. **Advanced surrogates** — GP, GAM, random forest, neural network, Bayesian optimization
+
+
+# Part I: Classical RSM {#sec-classical}
+
+## I.1 Fitting the model
+
+```{r classic-fit}
+set.seed(2026)
+d_classic <- expand.grid(
+  N = seq(80, 160, length.out = 6),
+  K = seq(40, 120, length.out = 6)
+)
+d_classic$Yield <- with(d_classic,
+  6 + 0.04 * (N - 120) - 0.0003 * (N - 120)^2 +
+  0.03 * (K - 80) - 0.0002 * (K - 80)^2 +
+  0.0001 * (N - 120) * (K - 80) + rnorm(nrow(d_classic), 0, 0.3)
+)
+fit <- rsm_fit(d_classic, "Yield", c("N", "K"), order = 2)
+fit
+```
+
+## I.2 Design audit
+
+```{r classic-audit}
+rsm_design_audit(fit)
+```
+
+## I.3 Canonical analysis
+
+```{r classic-canonical}
+rsm_canonical(fit)
+```
+
+## I.4 Diagnostics
+
+```{r classic-diagnostics, fig.cap="Diagnostic plots."}
+rsm_diagnostics(fit)
+```
+
+
+# Part II: Optimization {#sec-optimization}
+
+## II.1 Finding the optimum
+
+```{r opt-optimize}
+opt <- rsm_optimize(fit, goal = "max", method = "L-BFGS-B")
+opt
+```
+
+## II.2 Near-optimal region
+
+```{r opt-near}
+near <- rsm_near_optimal(fit, opt, tolerance = 0.05, n = 20)
+cat("Points in near-optimal region:", nrow(near), "\n")
+```
+
+## II.3 Economic optimum
+
+```{r opt-economic}
+eco <- rsm_economic_optimum(fit, response_price = 1200,
+  factor_cost = c(N = 5.5, K = 4.0))
+eco
+```
+
+
+# Part III: GLM-RSM {#sec-glm}
+
+## III.1 Poisson
+
+```{r glm-poisson}
+set.seed(20260813)
+g_pois <- expand.grid(
+  Dose = seq(-1, 1, length.out = 7),
+  Time = seq(-1, 1, length.out = 7)
+)
+eta_pois <- with(g_pois, 2 + 0.3 * Dose - 0.2 * Time -
+  0.4 * Dose^2 - 0.25 * Time^2 + 0.15 * Dose * Time)
+g_pois$count <- rpois(nrow(g_pois), lambda = exp(eta_pois))
+fit_pois <- rsm_glm_fit(g_pois, "count", c("Dose", "Time"), family = poisson())
+fit_pois
+```
+
+```{r glm-poisson-disp}
+rsm_glm_dispersion(fit_pois)
+```
+
+## III.2 Binomial
+
+```{r glm-binomial}
+set.seed(20260814)
+g_bin <- expand.grid(
+  Dose = seq(-1, 1, length.out = 7),
+  Time = seq(-1, 1, length.out = 7)
+)
+eta_bin <- with(g_bin, 0.5 + 0.8 * Dose - 0.4 * Time -
+  0.6 * Dose^2 - 0.3 * Time^2 + 0.2 * Dose * Time)
+g_bin$n <- 40
+g_bin$success <- rbinom(nrow(g_bin), size = g_bin$n, prob = plogis(eta_bin))
+g_bin$prop <- g_bin$success / g_bin$n
+fit_bin <- rsm_glm_fit(g_bin, "prop", c("Dose", "Time"),
+                       family = binomial(), weights = g_bin$n)
+fit_bin
+```
+
+## III.3 Gamma
+
+```{r glm-gamma}
+set.seed(20260815)
+g_gam <- expand.grid(
+  x1 = seq(-1, 1, length.out = 7),
+  x2 = seq(-1, 1, length.out = 7)
+)
+eta_gam <- with(g_gam, 1.8 + 0.25 * x1 - 0.20 * x2 -
+  0.30 * x1^2 - 0.25 * x2^2)
+g_gam$y <- rgamma(nrow(g_gam), shape = 10, scale = exp(eta_gam) / 10)
+fit_gamma <- rsm_glm_fit(g_gam, "y", c("x1", "x2"),
+                         family = Gamma(link = "log"))
+fit_gamma
+```
+
+
+# Part IV: Nonlinear {#sec-nonlinear}
+
+## IV.1 GA initialization
+
+```{r nl-ga}
+set.seed(20260816)
+d_nl <- expand.grid(
+  N = seq(10, 160, length.out = 7),
+  P = seq(5, 90, length.out = 7)
+)
+d_nl$Yield <- with(d_nl,
+  11 * (1 - exp(-0.025 * N)) * (1 - exp(-0.040 * P)) +
+  rnorm(nrow(d_nl), 0, 0.08)
+)
+fit_ga <- rsm_nonlinear_fit(
+  d_nl, "Yield", c("N", "P"),
+  model = "mitscherlich2_product",
+  start = "ga",
+  start_control = list(popSize = 50, maxiter = 150, run = 50),
+  engine = "nlsLM"
+)
+fit_ga
+```
+
+## IV.2 Diagnostics
+
+```{r nl-diag}
+rsm_nonlinear_diagnostics(fit_ga)
+```
+
+## IV.3 Michaelis-Menten
+
+```{r nl-mm}
+d_mm <- expand.grid(
+  N = seq(10, 150, length.out = 6),
+  P = seq(5, 80, length.out = 6)
+)
+d_mm$Yield <- with(d_mm, 10 * N / (30 + N) * P / (20 + P))
+fit_mm <- rsm_nonlinear_fit(
+  d_mm, "Yield", c("N", "P"),
+  model = "michaelis_menten2",
+  start = c(A = 10, K1 = 30, K2 = 20),
+  engine = "nls"
+)
+rsm_nonlinear_diagnostics(fit_mm)
+```
+
+
+# Part V: Tier 3 Surrogates {#sec-tier3}
+
+## V.1 Gaussian Process
+
+```{r tier3-gp}
+set.seed(1301)
+d_gp <- data.frame(x1 = runif(50, -2, 2), x2 = runif(50, -2, 2))
+d_gp$y <- with(d_gp, sin(x1) * cos(x2) + 0.3 * rnorm(nrow(d_gp)))
+gp <- rsm_surrogate(d_gp, "y", c("x1", "x2"), method = "gp")
+gp
+```
+
+## V.2 GAM
+
+```{r tier3-gam}
+gam_fit <- rsm_surrogate(d_gp, "y", c("x1", "x2"), method = "gam")
+gam_fit
+```
+
+## V.3 Random Forest
+
+```{r tier3-rf}
+rf_fit <- rsm_surrogate(d_gp, "y", c("x1", "x2"), method = "rf")
+pr_rf <- predict(rf_fit, d_gp[1:5, c("x1", "x2")])
+cat("RF predictions:", round(pr_rf, 3), "\n")
+```
+
+## V.4 Neural Network
+
+```{r tier3-nn}
+nn_fit <- rsm_surrogate(d_gp, "y", c("x1", "x2"), method = "nn", size = 3)
+pr_nn <- predict(nn_fit, d_gp[1:5, c("x1", "x2")])
+cat("NN predictions:", round(pr_nn, 3), "\n")
+```
+
+## V.5 Bayesian Optimization
+
+```{r tier3-bayes}
+next_point <- rsm_bayes_opt(d_gp, "y", c("x1", "x2"), n_candidates = 1000)
+cat("Recommended next point:\n")
+print(next_point$next_point)
+cat("Expected improvement:", round(next_point$expected_improvement, 4), "\n")
+```
+
+
+# Part VI: Graphics {#sec-graphics}
+
+## VI.1 Perturbation plot
+
+```{r fig-perturbation, fig.cap="Perturbation plot."}
+rsm_perturbation(fit, center = opt$solution)
+```
+
+## VI.2 FDS plot
+
+```{r fig-fds, fig.cap="Fraction of Design Space."}
+rsm_fds(fit)
+```
+
+## VI.3 VDG
+
+```{r fig-vdg, fig.cap="Variance Dispersion Graph."}
+rsm_vdg(fit)
+```
+
+
+# References {.unnumbered}
+
+- Box, G. E. P. & Draper, N. R. (2007). *Response Surfaces*. Wiley.
+- Myers, R. H. et al. (2016). *Response Surface Methodology*. Wiley.
+- Rasmussen, C. E. & Williams, C. K. I. (2006). *Gaussian Processes for Machine Learning*. MIT Press.
+
+```{r session-info}
+sessionInfo()
+```
