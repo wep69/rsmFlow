@@ -36,17 +36,17 @@ The 11 vignettes are available for separate download:
 
 | # | Vignette | Description |
 |---|----------|-------------|
-| 00 | [Getting started](vignettes/00-getting-started.html) | Overview and basic workflow |
-| 01 | [Non-orthogonal designs](vignettes/01-nonorthogonal-designs.html) | Design audit and diagnostics |
-| 02 | [Optimization & uncertainty](vignettes/02-optimization-uncertainty.html) | Optimization with confidence intervals |
-| 03 | [Multi-response economics](vignettes/03-multiresponse-economics.html) | Desirability and Pareto analysis |
-| 04 | [Graphics & teaching](vignettes/04-graphics-teaching.html) | Static and interactive plots |
-| 05 | [Advanced surrogates](vignettes/05-advanced-surrogates.html) | GP, GAM, RF, NN surrogates |
-| 06 | [GLM response surfaces](vignettes/06-glm-response-surfaces.html) | Two-factor GLM-RSM |
-| 07 | [Nonlinear response surfaces](vignettes/07-nonlinear-response-surfaces.html) | Two-factor nonlinear models |
+| 00 | [Getting started](vignettes_html/.html) | Overview and basic workflow |
+| 01 | [Non-orthogonal designs](vignettes_html/.html) | Design audit and diagnostics |
+| 02 | [Optimization & uncertainty](vignettes_html/.html) | Optimization with confidence intervals |
+| 03 | [Multi-response economics](vignettes_html/.html) | Desirability and Pareto analysis |
+| 04 | [Graphics & teaching](vignettes_html/.html) | Static and interactive plots |
+| 05 | [Advanced surrogates](vignettes_html/.html) | GP, GAM, RF, NN surrogates |
+| 06 | [GLM response surfaces](vignettes_html/.html) | Two-factor GLM-RSM |
+| 07 | [Nonlinear response surfaces](vignettes_html/.html) | Two-factor nonlinear models |
 | 08 | [Tier-3 integrated](vignettes/08-tier3-integrated.html) | Advanced model integration |
-| 09 | [Engine comparison](vignettes/09-engine-comparison.html) | Comparing fitting engines |
-| 10 | [State of the art](vignettes/10-state-of-the-art.html) | Comprehensive tutorial |
+| 09 | [Engine comparison](vignettes_html/.html) | Comparing fitting engines |
+| 10 | [State of the art](vignettes_html/.html) | Comprehensive tutorial |
 
 ## Cheatsheets
 
