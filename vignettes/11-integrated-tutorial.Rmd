@@ -257,7 +257,7 @@ cat("Expected improvement:", round(next_point$expected_improvement, 4), "\n")
 ## VI.1 Perturbation plot
 
 ```{r fig-perturbation, fig.cap="Perturbation plot."}
-rsm_perturbation(fit, center = opt$solution)
+rsm_perturbation(fit)
 ```
 
 ## VI.2 FDS plot
