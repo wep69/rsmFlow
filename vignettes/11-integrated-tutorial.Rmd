@@ -403,19 +403,22 @@ cat("GP predicted:", round(opt_gp$predicted, 3), "\n")
 ## VI.1 Perturbation plot
 
 ```{r fig-perturbation, fig.cap="Perturbation plot: sensitivity of yield to each factor.", fig.alt="Perturbation plot."}
-rsm_perturbation(fit)
+pert <- rsm_perturbation(fit)
+plot(pert)
 ```
 
 ## VI.2 FDS plot
 
 ```{r fig-fds, fig.cap="Fraction of Design Space.", fig.alt="FDS curve."}
-rsm_fds(fit)
+fds <- rsm_fds(fit)
+plot(fds)
 ```
 
 ## VI.3 VDG
 
 ```{r fig-vdg, fig.cap="Variance Dispersion Graph.", fig.alt="VDG plot."}
-rsm_vdg(fit)
+vdg <- rsm_vdg(fit)
+plot(vdg)
 ```
 
 
