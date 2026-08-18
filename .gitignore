@@ -1,9 +1,46 @@
+# === Build artifacts ===
 *.tar.gz
+*.tar.bz2
+*.zip
 *.Rcheck/
+validation/
+
+# === R session ===
 .Rhistory
 .RData
+.Rproj.user/
+
+# === Compiled vignettes (keep source in vignettes/) ===
 inst/doc/*.html
 inst/doc/*.R
 inst/doc/*.Rmd
+inst/doc/*.R
+
+# === Compiled source ===
 src/*.o
 src/*.dll
+src/*.so
+
+# === Local-only directories (not versioned) ===
+python_version/
+
+# === PDF cheatsheets (large binary) ===
+*.pdf
+
+# === DSH / workspace artifacts ===
+docs/
+INSTALL.md
+RELATORIO_VALIDACAO_RSMFLOW.md
+rsmFlow_VALIDACAO_LOCAL_DETALHADA.md
+agents-anywhere-readme.md
+balance-meter-readme.md
+configure.md
+dare-readme.md
+dsh-*.md
+steer-README.md
+better-sidebar-install.ps1
+multimodal-pkg.json
+
+# === OS files ===
+.DS_Store
+Thumbs.db
