@@ -8,6 +8,8 @@ output:
     toc: true
     toc_depth: 3
     number_sections: true
+    fig_width: 7
+    fig_height: 5
 vignette: >
   %\VignetteIndexEntry{rsmFlow in Practice}
   %\VignetteEngine{knitr::rmarkdown}
@@ -15,7 +17,12 @@ vignette: >
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.align = "center",
+  out.width = "85%"
+)
 ```
 
 ```{r library}
@@ -42,9 +49,9 @@ This tutorial walks through **five scientific scenarios**:
 
 # Part I: Classical RSM {#sec-classical}
 
-## I.1 Fitting the model
+## I.1 Data and fitting
 
-```{r classic-fit}
+```{r classic-data}
 set.seed(2026)
 d_classic <- expand.grid(
   N = seq(80, 160, length.out = 6),
@@ -55,6 +62,16 @@ d_classic$Yield <- with(d_classic,
   0.03 * (K - 80) - 0.0002 * (K - 80)^2 +
   0.0001 * (N - 120) * (K - 80) + rnorm(nrow(d_classic), 0, 0.3)
 )
+head(d_classic, 10)
+```
+
+```{r classic-scatter, fig.cap="Observed yield vs. nitrogen dose.", fig.alt="Scatterplot of yield vs N."}
+plot(d_classic$N, d_classic$Yield, pch = 19, col = "#0072B2",
+     xlab = "N (kg/ha)", ylab = "Yield (Mg/ha)",
+     main = "Observed Data")
+```
+
+```{r classic-fit}
 fit <- rsm_fit(d_classic, "Yield", c("N", "K"), order = 2)
 fit
 ```
@@ -73,8 +90,14 @@ rsm_canonical(fit)
 
 ## I.4 Diagnostics
 
-```{r classic-diagnostics, fig.cap="Diagnostic plots."}
+```{r classic-diagnostics, fig.cap="Diagnostic plots for the classical RSM fit.", fig.alt="Four diagnostic panels."}
 rsm_diagnostics(fit)
+```
+
+## I.5 Lack of fit
+
+```{r classic-lof}
+rsm_lack_of_fit(fit)
 ```
 
 
@@ -92,6 +115,20 @@ opt
 ```{r opt-near}
 near <- rsm_near_optimal(fit, opt, tolerance = 0.05, n = 20)
 cat("Points in near-optimal region:", nrow(near), "\n")
+head(near, 10)
+```
+
+```{r opt-near-fig, fig.cap="Near-optimal region: points within 5% of the maximum.", fig.alt="Contour with near-optimal points."}
+n1 <- seq(min(d_classic$N), max(d_classic$N), length.out = 50)
+k1 <- seq(min(d_classic$K), max(d_classic$K), length.out = 50)
+grd <- expand.grid(N = n1, K = k1)
+grd$pred <- as.numeric(predict(fit, grd))
+filled.contour(n1, k1, matrix(grd$pred, 50, 50),
+               main = "Response Surface with Near-Optimal Region",
+               xlab = "N (kg/ha)", ylab = "K (kg/ha)",
+               color.palette = heat.colors)
+points(near$N, near$K, pch = 19, col = rgb(0, 0, 0, 0.3), cex = 0.5)
+points(opt$solution["N"], opt$solution["K"], pch = 18, col = "blue", cex = 1.5)
 ```
 
 ## II.3 Economic optimum
@@ -102,10 +139,21 @@ eco <- rsm_economic_optimum(fit, response_price = 1200,
 eco
 ```
 
+```{r opt-economic-fig, fig.cap="Biological vs economic optimum.", fig.alt="Contour with two optima."}
+filled.contour(n1, k1, matrix(grd$pred, 50, 50),
+               main = "Biological vs Economic Optimum",
+               xlab = "N (kg/ha)", ylab = "K (kg/ha)",
+               color.palette = heat.colors)
+points(opt$solution["N"], opt$solution["K"], pch = 18, col = "red", cex = 1.5)
+points(eco$solution["N"], eco$solution["K"], pch = 17, col = "blue", cex = 1.5)
+legend("topright", legend = c("Biological", "Economic"),
+       pch = c(18, 17), col = c("red", "blue"))
+```
+
 
 # Part III: GLM-RSM {#sec-glm}
 
-## III.1 Poisson
+## III.1 Poisson: count data
 
 ```{r glm-poisson}
 set.seed(20260813)
@@ -117,14 +165,33 @@ eta_pois <- with(g_pois, 2 + 0.3 * Dose - 0.2 * Time -
   0.4 * Dose^2 - 0.25 * Time^2 + 0.15 * Dose * Time)
 g_pois$count <- rpois(nrow(g_pois), lambda = exp(eta_pois))
 fit_pois <- rsm_glm_fit(g_pois, "count", c("Dose", "Time"), family = poisson())
-fit_pois
+summary(fit_pois$model)$coefficients
 ```
 
 ```{r glm-poisson-disp}
 rsm_glm_dispersion(fit_pois)
 ```
 
-## III.2 Binomial
+```{r glm-poisson-fig, fig.cap="Observed counts vs fitted values for Poisson GLM.", fig.alt="Scatterplot of observed vs fitted."}
+plot(fitted(fit_pois$model), g_pois$count,
+     pch = 19, col = "#D55E00",
+     xlab = "Fitted values", ylab = "Observed counts",
+     main = "Poisson GLM: Observed vs Fitted")
+abline(0, 1, lty = 2, col = "grey50")
+```
+
+```{r glm-poisson-surface, fig.cap="Response surface on the link scale.", fig.alt="Contour plot of GLM predictions."}
+opt_pois <- rsm_optimize(fit_pois, goal = "max", method = "L-BFGS-B")
+nd_pois <- expand.grid(Dose = seq(-1, 1, length.out = 50), Time = seq(-1, 1, length.out = 50))
+nd_pois$pred <- as.numeric(predict(fit_pois, nd_pois))
+filled.contour(seq(-1, 1, length.out = 50), seq(-1, 1, length.out = 50),
+               matrix(nd_pois$pred, 50, 50),
+               main = "Poisson GLM Response Surface",
+               xlab = "Dose", ylab = "Time",
+               color.palette = heat.colors)
+```
+
+## III.2 Binomial: proportion data
 
 ```{r glm-binomial}
 set.seed(20260814)
@@ -139,10 +206,18 @@ g_bin$success <- rbinom(nrow(g_bin), size = g_bin$n, prob = plogis(eta_bin))
 g_bin$prop <- g_bin$success / g_bin$n
 fit_bin <- rsm_glm_fit(g_bin, "prop", c("Dose", "Time"),
                        family = binomial(), weights = g_bin$n)
-fit_bin
+summary(fit_bin$model)$coefficients
 ```
 
-## III.3 Gamma
+```{r glm-binomial-fig, fig.cap="Binomial GLM: observed proportions vs fitted probabilities.", fig.alt="Scatterplot of proportions vs fitted."}
+plot(fitted(fit_bin$model), g_bin$prop,
+     pch = 19, col = "#009E73",
+     xlab = "Fitted probability", ylab = "Observed proportion",
+     main = "Binomial GLM: Observed vs Fitted")
+abline(0, 1, lty = 2, col = "grey50")
+```
+
+## III.3 Gamma: positive continuous
 
 ```{r glm-gamma}
 set.seed(20260815)
@@ -155,7 +230,15 @@ eta_gam <- with(g_gam, 1.8 + 0.25 * x1 - 0.20 * x2 -
 g_gam$y <- rgamma(nrow(g_gam), shape = 10, scale = exp(eta_gam) / 10)
 fit_gamma <- rsm_glm_fit(g_gam, "y", c("x1", "x2"),
                          family = Gamma(link = "log"))
-fit_gamma
+summary(fit_gamma$model)$coefficients
+```
+
+```{r glm-gamma-fig, fig.cap="Gamma GLM: observed vs fitted.", fig.alt="Scatterplot of observed vs fitted for Gamma."}
+plot(fitted(fit_gamma$model), g_gam$y,
+     pch = 19, col = "#56B4E9",
+     xlab = "Fitted values", ylab = "Observed",
+     main = "Gamma GLM: Observed vs Fitted")
+abline(0, 1, lty = 2, col = "grey50")
 ```
 
 
@@ -183,6 +266,14 @@ fit_ga <- rsm_nonlinear_fit(
 fit_ga
 ```
 
+```{r nl-ga-fig, fig.cap="Observed vs fitted for Mitscherlich model with GA initialization.", fig.alt="Scatterplot of observed vs fitted."}
+plot(fitted(fit_ga$model), d_nl$Yield,
+     pch = 19, col = "#E69F00",
+     xlab = "Fitted Yield", ylab = "Observed Yield",
+     main = "Mitscherlich (GA start): Observed vs Fitted")
+abline(0, 1, lty = 2, col = "grey50")
+```
+
 ## IV.2 Diagnostics
 
 ```{r nl-diag}
@@ -206,6 +297,23 @@ fit_mm <- rsm_nonlinear_fit(
 rsm_nonlinear_diagnostics(fit_mm)
 ```
 
+```{r nl-mm-fig, fig.cap="Michaelis-Menten: observed vs fitted.", fig.alt="Scatterplot for Michaelis-Menten."}
+plot(fitted(fit_mm$model), d_mm$Yield,
+     pch = 19, col = "#CC79A7",
+     xlab = "Fitted Yield", ylab = "Observed Yield",
+     main = "Michaelis-Menten: Observed vs Fitted")
+abline(0, 1, lty = 2, col = "grey50")
+```
+
+## IV.4 Optimization
+
+```{r nl-opt}
+opt_nl <- rsm_optimize(fit_ga, goal = "max", method = "L-BFGS-B")
+cat("Optimal N:", round(opt_nl$solution["N"], 1), "kg/ha\n")
+cat("Optimal P:", round(opt_nl$solution["P"], 1), "kg/ha\n")
+cat("Predicted Yield:", round(opt_nl$predicted, 2), "Mg/ha\n")
+```
+
 
 # Part V: Tier 3 Surrogates {#sec-tier3}
 
@@ -216,30 +324,60 @@ set.seed(1301)
 d_gp <- data.frame(x1 = runif(50, -2, 2), x2 = runif(50, -2, 2))
 d_gp$y <- with(d_gp, sin(x1) * cos(x2) + 0.3 * rnorm(nrow(d_gp)))
 gp <- rsm_surrogate(d_gp, "y", c("x1", "x2"), method = "gp")
-gp
+```
+
+```{r tier3-gp-fig, fig.cap="GP surrogate: observed vs predicted.", fig.alt="Scatterplot for GP."}
+pr_gp <- predict(gp, d_gp, se.fit = TRUE)
+plot(pr_gp$fit, d_gp$y,
+     pch = 19, col = "#0072B2",
+     xlab = "GP Predicted", ylab = "Observed",
+     main = "Gaussian Process: Observed vs Predicted")
+abline(0, 1, lty = 2, col = "grey50")
 ```
 
 ## V.2 GAM
 
 ```{r tier3-gam}
 gam_fit <- rsm_surrogate(d_gp, "y", c("x1", "x2"), method = "gam")
-gam_fit
+```
+
+```{r tier3-gam-fig, fig.cap="GAM surrogate: observed vs predicted.", fig.alt="Scatterplot for GAM."}
+pr_gam <- predict(gam_fit, d_gp)
+plot(pr_gam, d_gp$y,
+     pch = 19, col = "#009E73",
+     xlab = "GAM Predicted", ylab = "Observed",
+     main = "GAM: Observed vs Predicted")
+abline(0, 1, lty = 2, col = "grey50")
 ```
 
 ## V.3 Random Forest
 
 ```{r tier3-rf}
 rf_fit <- rsm_surrogate(d_gp, "y", c("x1", "x2"), method = "rf")
-pr_rf <- predict(rf_fit, d_gp[1:5, c("x1", "x2")])
-cat("RF predictions:", round(pr_rf, 3), "\n")
+```
+
+```{r tier3-rf-fig, fig.cap="Random Forest: observed vs predicted.", fig.alt="Scatterplot for RF."}
+pr_rf <- predict(rf_fit, d_gp)
+plot(pr_rf, d_gp$y,
+     pch = 19, col = "#D55E00",
+     xlab = "RF Predicted", ylab = "Observed",
+     main = "Random Forest: Observed vs Predicted")
+abline(0, 1, lty = 2, col = "grey50")
 ```
 
 ## V.4 Neural Network
 
 ```{r tier3-nn}
 nn_fit <- rsm_surrogate(d_gp, "y", c("x1", "x2"), method = "nn", size = 3)
-pr_nn <- predict(nn_fit, d_gp[1:5, c("x1", "x2")])
-cat("NN predictions:", round(pr_nn, 3), "\n")
+```
+
+```{r tier3-nn-fig, fig.cap="Neural Network: observed vs predicted.", fig.alt="Scatterplot for NN."}
+pr_nn <- predict(nn_fit, d_gp)
+plot(pr_nn, d_gp$y,
+     pch = 19, col = "#56B4E9",
+     xlab = "NN Predicted", ylab = "Observed",
+     main = "Neural Network: Observed vs Predicted")
+abline(0, 1, lty = 2, col = "grey50")
 ```
 
 ## V.5 Bayesian Optimization
@@ -251,24 +389,32 @@ print(next_point$next_point)
 cat("Expected improvement:", round(next_point$expected_improvement, 4), "\n")
 ```
 
+## V.6 Optimization of surrogates
+
+```{r tier3-opt}
+opt_gp <- rsm_surrogate_optimize(gp, goal = "max", method = "L-BFGS-B")
+cat("GP optimum:", round(opt_gp$solution, 3), "\n")
+cat("GP predicted:", round(opt_gp$predicted, 3), "\n")
+```
+
 
 # Part VI: Graphics {#sec-graphics}
 
 ## VI.1 Perturbation plot
 
-```{r fig-perturbation, fig.cap="Perturbation plot."}
+```{r fig-perturbation, fig.cap="Perturbation plot: sensitivity of yield to each factor.", fig.alt="Perturbation plot."}
 rsm_perturbation(fit)
 ```
 
 ## VI.2 FDS plot
 
-```{r fig-fds, fig.cap="Fraction of Design Space."}
+```{r fig-fds, fig.cap="Fraction of Design Space.", fig.alt="FDS curve."}
 rsm_fds(fit)
 ```
 
 ## VI.3 VDG
 
-```{r fig-vdg, fig.cap="Variance Dispersion Graph."}
+```{r fig-vdg, fig.cap="Variance Dispersion Graph.", fig.alt="VDG plot."}
 rsm_vdg(fit)
 ```
 
