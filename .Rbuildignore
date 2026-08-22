@@ -16,3 +16,6 @@
 ^DEPENDENCIES\.md$
 ^cran-comments\.md$
 ^\.Rproj\.user$
+^vignettes/VIGNETTE_ORGANIZATION\.md$
+^vignettes/VIGNETTE_STATIC_INVENTORY\.md$
+^_vignettes_backup_

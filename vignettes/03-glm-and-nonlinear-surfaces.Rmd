@@ -1,0 +1,578 @@
+---
+title: "rsmFlow: GLM and Nonlinear Response Surfaces"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{rsmFlow: GLM and Nonlinear Response Surfaces}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+bibliography: references.bib
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(collapse=TRUE, comment="#>", fig.width=7, fig.height=5, dpi=120, eval=FALSE)
+```
+
+# GLM and nonlinear response surfaces
+
+**Role in the vignette curriculum.** This deep dive owns non-Gaussian two-factor response surfaces, response-scale interpretation, offsets/weights, nonlinear biological models, GA/multistart initialization, optional `gnls`, and nonlinear identifiability diagnostics. General optimization and uncertainty are developed in the next vignette.
+
+## 1. Why move beyond Gaussian quadratic RSM?
+
+A second-order Gaussian surface is a local approximation. It is often excellent for designed experiments, but response data can violate its assumptions or encode biological mechanisms that a polynomial does not express naturally.
+
+Two broad alternatives are implemented in `rsmFlow`:
+
+1. **GLM response surfaces:** keep a hierarchical quadratic predictor but model a non-Gaussian response through a link function.
+2. **Nonlinear response surfaces:** replace the polynomial mean with a biologically interpretable nonlinear function.
+
+These are different modeling decisions. A nonlinear model is not simply a GLM with another link, and a GLM is not simply a transformed Gaussian regression.
+
+## 2. A common two-factor quadratic predictor for GLMs
+
+For factors \(x_1\) and \(x_2\),
+
+\[
+g(\mu) = \beta_0 + \beta_1x_1 + \beta_2x_2 + \beta_{11}x_1^2 + \beta_{22}x_2^2 + \beta_{12}x_1x_2.
+\]
+
+The link \(g(\cdot)\) maps the mean response to the linear predictor.
+
+```{r}
+library(rsmFlow)
+```
+
+## 3. Poisson example: pest counts
+
+Create a realistic dose × exposure-time teaching dataset.
+
+```{r}
+set.seed(501)
+grid <- expand.grid(
+  Dose = seq(0, 1, length.out=7),
+  Time = seq(0, 1, length.out=7)
+)
+
+eta <- 3.8 - 1.9*grid$Dose - 0.8*grid$Time +
+  0.9*grid$Dose^2 + 0.4*grid$Time^2 - 0.5*grid$Dose*grid$Time
+mu <- exp(eta)
+grid$Count <- rpois(nrow(grid), mu)
+```
+
+Fit:
+
+```{r}
+pois_fit <- rsm_glm_fit(
+  grid,
+  response="Count",
+  factors=c("Dose","Time"),
+  order=2,
+  family=poisson()
+)
+summary(pois_fit)
+```
+
+### Why the response scale matters
+
+The polynomial is quadratic on the log-mean scale, but the operational response is \(\mu=\exp(\eta)\). Therefore, contour geometry on the response scale can differ visually from the link scale.
+
+```{r}
+rsm_plot(pois_fit, type="contour", scale="response")
+rsm_plot(pois_fit, type="contour", scale="link")
+```
+
+For scientific recommendations, the response scale is usually the primary scale.
+
+## 4. Dispersion diagnostics
+
+```{r}
+disp <- rsm_glm_dispersion(pois_fit)
+disp
+```
+
+A Pearson-type dispersion substantially larger than one suggests that the Poisson variance may be too restrictive. This is evidence, not an automatic family switch.
+
+Check broader diagnostics:
+
+```{r}
+gd <- rsm_glm_diagnostics(pois_fit)
+gd
+```
+
+## 5. Negative Binomial alternative
+
+```{r}
+if (requireNamespace("MASS", quietly=TRUE)) {
+  nb_fit <- rsm_glm_fit(
+    grid,
+    response="Count",
+    factors=c("Dose","Time"),
+    order=2,
+    family="negative_binomial"
+  )
+  rsm_compare_engines(pois_fit, nb_fit)
+}
+```
+
+### Interpretation
+
+Prefer Negative Binomial when extra-Poisson variability is scientifically and diagnostically supported. Do not fit it simply because it has an additional dispersion parameter.
+
+## 6. Exposure offsets
+
+Suppose counts arise from different sampling efforts.
+
+```{r}
+set.seed(502)
+grid$Exposure <- sample(c(5,10,20), nrow(grid), replace=TRUE)
+rate_mu <- exp(2.2 - 1.4*grid$Dose + 0.3*grid$Time)
+grid$CountExposure <- rpois(nrow(grid), lambda=rate_mu * grid$Exposure)
+
+offset_fit <- rsm_glm_fit(
+  grid,
+  response="CountExposure",
+  factors=c("Dose","Time"),
+  family=poisson(),
+  offset=log(grid$Exposure),
+  offset_reference=log(10)
+)
+```
+
+The offset separates response intensity from exposure. `offset_reference` supplies a defined exposure when predicting new factor combinations for optimization.
+
+## 7. Binomial example: germination
+
+```{r}
+set.seed(503)
+germ <- expand.grid(
+  Temperature = seq(18,34,length.out=7),
+  Salinity = seq(0,8,length.out=7)
+)
+
+eta <- 2.2 - 0.055*(germ$Temperature-26)^2 -
+  0.28*germ$Salinity - 0.035*germ$Salinity^2
+p <- plogis(eta)
+germ$Trials <- sample(c(30,50,80), nrow(germ), replace=TRUE)
+germ$Success <- rbinom(nrow(germ), germ$Trials, p)
+germ$Proportion <- germ$Success/germ$Trials
+```
+
+Fit a proportion with trial weights:
+
+```{r}
+bin_fit <- rsm_glm_fit(
+  germ,
+  response="Proportion",
+  factors=c("Temperature","Salinity"),
+  family=binomial(),
+  weights=germ$Trials
+)
+```
+
+Plot probability contours:
+
+```{r}
+rsm_plot(bin_fit, type="contour", scale="response")
+```
+
+### Interpretation
+
+A proportion based on 80 trials is more informative than the same proportion based on 5 trials. Trial weights are therefore part of the sampling model, not optional cosmetics.
+
+## 8. Quasi-binomial and quasi-Poisson
+
+When mean structure is useful but variance departs from a full likelihood family:
+
+```{r}
+qpois_fit <- rsm_glm_fit(
+  grid,
+  "Count",
+  c("Dose","Time"),
+  family=quasipoisson()
+)
+
+qbin_fit <- rsm_glm_fit(
+  germ,
+  "Proportion",
+  c("Temperature","Salinity"),
+  family=quasibinomial(),
+  weights=germ$Trials
+)
+```
+
+Do not compare quasi-family candidates using likelihood AIC as if they were ordinary likelihood models.
+
+## 9. Gamma response surface
+
+For positive, right-skewed continuous responses such as waiting time, concentration, or energy use:
+
+```{r}
+set.seed(504)
+gamdat <- expand.grid(
+  Temperature=seq(20,40,length.out=7),
+  Moisture=seq(0.2,0.8,length.out=7)
+)
+mean_y <- exp(2.0 + 0.03*(gamdat$Temperature-30) -
+  1.8*(gamdat$Moisture-0.5)^2)
+shape <- 20
+gamdat$Response <- rgamma(nrow(gamdat), shape=shape, scale=mean_y/shape)
+
+gamma_fit <- rsm_glm_fit(
+  gamdat,
+  "Response",
+  c("Temperature","Moisture"),
+  family=Gamma(link="log")
+)
+```
+
+Use the response scale for operational interpretation.
+
+## 10. Inverse Gaussian response surface
+
+```{r}
+# Example family specification:
+# inv_fit <- rsm_glm_fit(
+#   dat_pos,
+#   "Duration",
+#   c("Temperature","Pressure"),
+#   family=inverse.gaussian(link="log")
+# )
+```
+
+The family should be chosen because its mean-variance relationship and support fit the scientific response, not because it is available in a menu.
+
+## 11. GLM lack of fit
+
+When replicated factor cells exist:
+
+```{r}
+rsm_glm_lack_of_fit(pois_fit)
+```
+
+Use this alongside residual diagnostics and dispersion. A non-Gaussian response can have an appropriate family but still have an inadequate mean surface.
+
+## 12. Response-scale canonical analysis
+
+```{r}
+gcan <- rsm_glm_canonical(bin_fit)
+gcan
+```
+
+Unlike a Gaussian identity-link quadratic, response-scale curvature under a nonlinear link is not interpreted by blindly reusing link-scale coefficients. `rsm_glm_canonical()` uses response-scale numerical derivatives for operational classification.
+
+## 13. Optimize a GLM surface
+
+```{r}
+opt_pest <- rsm_optimize(
+  pois_fit,
+  goal="min",
+  method="L-BFGS-B",
+  scale="response"
+)
+opt_pest
+```
+
+```{r}
+opt_germ <- rsm_optimize(
+  bin_fit,
+  goal="max",
+  method="L-BFGS-B",
+  scale="response"
+)
+opt_germ
+```
+
+Always state whether the reported objective is mean count, probability, rate at a reference exposure, or another response-scale quantity.
+
+# Part II. Nonlinear response surfaces
+
+## 14. Why use a biologically motivated nonlinear model?
+
+Quadratic polynomials are local. A nonlinear model can encode saturation, asymptotes, plateaus, or multiplicative factor response more directly [@Landes1999; @Frenzel2010].
+
+Inspect the catalog:
+
+```{r}
+rsm_nonlinear_models()
+```
+
+Families include Mitscherlich, Gompertz, Michaelis-Menten, asymptotic, Hoerl, linear plateau, quadratic plateau, and custom formulas.
+
+## 15. Mitscherlich two-factor product model
+
+Create a saturating fertilizer response:
+
+```{r}
+set.seed(510)
+nd <- expand.grid(
+  N=seq(0,160,length.out=7),
+  P=seq(0,90,length.out=7)
+)
+
+A <- 11
+kN <- 0.026
+kP <- 0.041
+nd$Yield <- A*(1-exp(-kN*nd$N))*(1-exp(-kP*nd$P)) +
+  rnorm(nrow(nd),0,0.08)
+```
+
+Fit with GA-assisted starts:
+
+```{r}
+nl_ga <- rsm_nonlinear_fit(
+  nd,
+  response="Yield",
+  factors=c("N","P"),
+  model="mitscherlich2_product",
+  start="ga",
+  engine="nlsLM",
+  seed=511
+)
+nl_ga
+```
+
+## 16. GA is a starting-value search, not the estimator
+
+The workflow is:
+
+**parameter bounds -> GA search -> starting vector -> nonlinear least squares -> final covariance/diagnostics.**
+
+The final estimator remains `nlsLM`, `nls`, or optional `gnls`.
+
+This distinction should be explicit in Methods sections.
+
+## 17. Direct GA start search
+
+```{r}
+form <- Yield ~ A*(1-exp(-kN*N))*(1-exp(-kP*P))
+
+start_ga <- rsm_nonlinear_start_ga(
+  data=nd,
+  formula=form,
+  start_bounds=list(
+    A=c(8,15),
+    kN=c(0.001,0.10),
+    kP=c(0.001,0.10)
+  ),
+  seed=512,
+  ga_control=list(popSize=100,maxiter=400,run=80)
+)
+start_ga
+```
+
+## 18. Multistart alternative
+
+```{r}
+start_ms <- rsm_nonlinear_start_multistart(
+  data=nd,
+  formula=form,
+  start_bounds=list(
+    A=c(8,15),
+    kN=c(0.001,0.10),
+    kP=c(0.001,0.10)
+  ),
+  n_start=1000,
+  seed=512
+)
+start_ms
+```
+
+Compare GA and multistart under the same bounds and frozen seeds rather than assuming one is universally superior.
+
+## 19. Nonlinear diagnostics
+
+```{r}
+nd_diag <- rsm_nonlinear_diagnostics(nl_ga)
+nd_diag
+```
+
+Inspect:
+
+- convergence status;
+- residual pattern;
+- parameter covariance/correlation when available;
+- numerical prediction-Jacobian singular values;
+- Jacobian condition number;
+- evidence of weak identifiability;
+- start-search metadata.
+
+### Interpretation
+
+A low residual RMSE can coexist with poorly identified parameters. For biological models, parameter identifiability is as important as fitted response error.
+
+## 20. Compare final solutions from GA and multistart
+
+```{r}
+nl_ms <- rsm_nonlinear_fit(
+  nd,
+  "Yield",
+  c("N","P"),
+  model="mitscherlich2_product",
+  start="multistart",
+  n_start=1000,
+  engine="nlsLM",
+  seed=512
+)
+
+rsm_compare_engines(nl_ga, nl_ms)
+rsm_compare_optima(
+  rsm_optimize(nl_ga, goal="max"),
+  rsm_optimize(nl_ms, goal="max")
+)
+```
+
+Similar fitted error is reassuring only if parameter interpretation and operational decisions are also stable.
+
+## 21. Michaelis-Menten two-factor model
+
+```{r}
+set.seed(513)
+mm <- expand.grid(x1=seq(1,100,length.out=8), x2=seq(1,80,length.out=8))
+mm$y <- 15*(mm$x1/(30+mm$x1))*(mm$x2/(20+mm$x2)) + rnorm(nrow(mm),0,0.12)
+
+mm_fit <- rsm_nonlinear_fit(
+  mm,
+  "y",
+  c("x1","x2"),
+  model="michaelis_menten2",
+  start="ga",
+  seed=514
+)
+```
+
+Use when enzyme-like or saturating factor kinetics are scientifically plausible.
+
+## 22. Gompertz and asymptotic forms
+
+```{r}
+# gom_fit <- rsm_nonlinear_fit(dat, "Response", c("x1","x2"),
+#   model="gompertz2_product", start="ga", seed=515)
+#
+# asym_fit <- rsm_nonlinear_fit(dat, "Response", c("x1","x2"),
+#   model="asymptotic2", start="ga", seed=515)
+```
+
+Select by biological meaning and fit adequacy, not by name familiarity.
+
+## 23. Linear and quadratic plateau models
+
+```{r}
+# lp <- rsm_nonlinear_fit(dat, "Yield", c("N","P"),
+#   model="linear_plateau2", start="ga", seed=516)
+#
+# qp <- rsm_nonlinear_fit(dat, "Yield", c("N","P"),
+#   model="quadratic_plateau2", start="ga", seed=516)
+```
+
+Plateau models are attractive when the scientific question concerns a threshold beyond which more input produces negligible biological gain. Their continuity and breakpoint parameterization must be checked numerically during local validation before formal inference.
+
+## 24. Custom nonlinear formula
+
+```{r}
+custom_formula <- Yield ~ A *
+  (1-exp(-k1*N)) *
+  (1-exp(-k2*P)) + c0
+
+custom_fit <- rsm_nonlinear_fit(
+  nd,
+  response="Yield",
+  factors=c("N","P"),
+  model="custom",
+  formula=custom_formula,
+  start="ga",
+  start_bounds=list(
+    A=c(8,15), k1=c(.001,.1), k2=c(.001,.1), c0=c(-2,2)
+  ),
+  seed=517
+)
+```
+
+A custom formula expands flexibility but also transfers responsibility for parameterization, bounds, starting values, and biological plausibility to the analyst.
+
+## 25. `nls`, `nlsLM`, and `gnls`
+
+Base `nls`:
+
+```{r}
+fit_nls <- rsm_nonlinear_fit(
+  nd,"Yield",c("N","P"),
+  model="mitscherlich2_product",
+  start="ga", engine="nls", seed=518
+)
+```
+
+Levenberg-Marquardt via optional `minpack.lm`:
+
+```{r}
+fit_lm <- rsm_nonlinear_fit(
+  nd,"Yield",c("N","P"),
+  model="mitscherlich2_product",
+  start="ga", engine="nlsLM", seed=518
+)
+```
+
+Generalized nonlinear least squares via optional `nlme`:
+
+```{r}
+fit_gnls <- rsm_nonlinear_fit(
+  nd,"Yield",c("N","P"),
+  model="mitscherlich2_product",
+  start="ga", engine="gnls",
+  variance="power",
+  seed=518
+)
+```
+
+### Interpretation
+
+Use `gnls` when residual variance/correlation structure is scientifically relevant. Do not choose it only because it is more complex. Backend compatibility and uncertainty simulation must be runtime-validated in the installed `nlme` version.
+
+## 26. Visualize nonlinear surfaces
+
+```{r}
+rsm_plot(nl_ga, type="surface", interactive=TRUE)
+rsm_plot(nl_ga, type="contour")
+rsm_profile(nl_ga, factor="N", at=list(P=60))
+```
+
+Profiles often communicate saturation more clearly than parameter tables.
+
+## 27. Three model-selection questions
+
+Before replacing classical RSM with a nonlinear model ask:
+
+1. Does biology motivate the nonlinear structure?
+2. Are nonlinear parameters identifiable in the experimental range?
+3. Does the nonlinear model change prediction or the practical optimum enough to matter?
+
+`rsm_compare_engines()` and `rsm_compare_optima()` are designed to keep these questions separate.
+
+## 28. Common mistakes
+
+1. Choosing Poisson solely because the response is integer.
+2. Ignoring exposure offsets in rate data.
+3. Optimizing GLM link scale when the decision is on response scale.
+4. Using AIC to rank quasi-likelihood models indiscriminately.
+5. Calling GA the nonlinear estimator.
+6. Reporting nonlinear parameters without identifiability diagnostics.
+7. Treating a quadratic plateau breakpoint as known precisely without uncertainty analysis.
+8. Extrapolating a saturating curve far beyond the observed range.
+
+## 29. Minimum reporting checklist
+
+- [ ] Response support and family justified.
+- [ ] Link function reported.
+- [ ] Weights/offset/exposure documented.
+- [ ] Dispersion checked for counts.
+- [ ] GLM diagnostics reported.
+- [ ] Optimization scale stated.
+- [ ] Nonlinear model equation reported.
+- [ ] Starting-value method reported.
+- [ ] GA explicitly distinguished from final estimator.
+- [ ] Parameter bounds and seed documented.
+- [ ] Convergence and Jacobian condition examined.
+- [ ] Residual variance/correlation structure reported for `gnls`.
+- [ ] Extrapolation limits stated.
+
+## 30. Where to go next
+
+Continue to **Optimization, Uncertainty, and Economics** to propagate fitted-model uncertainty into operating decisions and distinguish a biological optimum from an economic recommendation.

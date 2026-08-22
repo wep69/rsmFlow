@@ -1,0 +1,493 @@
+---
+title: "rsmFlow: Optimization, Optimum Uncertainty, and Economics"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{rsmFlow: Optimization, Optimum Uncertainty, and Economics}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+bibliography: references.bib
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(collapse=TRUE, comment="#>", fig.width=7, fig.height=5, dpi=120, eval=FALSE)
+```
+
+# Optimization, optimum uncertainty, and economics
+
+**Role in the vignette curriculum.** This deep dive owns constrained optimization, target search, optimizer comparison, uncertainty in optimum coordinates, joint regions, near-optimal operating zones, uncertainty-aware optimization, optimum stability, and biological-versus-economic decisions. Multiresponse trade-offs are developed in the next vignette.
+
+## 1. An optimum is an estimated decision, not a fact
+
+A response-surface optimum depends on:
+
+- model specification;
+- estimated parameters;
+- factor bounds;
+- optimization objective;
+- optimizer behavior;
+- uncertainty in the fitted surface.
+
+Therefore, a defensible analysis reports more than one coordinate vector.
+
+For optimum inference, uncertainty in the factor settings themselves is central [@Wan2016].
+
+## 2. Load and fit the agronomic example
+
+```{r}
+library(rsmFlow)
+p <- system.file("extdata","agronomy_rsm_nonorthogonal.csv",package="rsmFlow")
+dat <- read.csv(p)
+fit <- rsm_fit(dat,"Yield",c("N","K","Irrigation"),order=2)
+rsm_diagnostics(fit)
+```
+
+Only continue if model adequacy is scientifically acceptable.
+
+## 3. Stationary geometry versus bounded decision
+
+```{r}
+can <- rsm_canonical(fit)
+can
+```
+
+The stationary point solves the unconstrained quadratic geometry. The operational decision is restricted to feasible bounds.
+
+```{r}
+opt <- rsm_optimize(
+  fit,
+  goal="max",
+  method="hybrid",
+  seed=601
+)
+opt
+```
+
+### Interpretation
+
+If the bounded optimum lies on a factor limit, report that explicitly. A boundary optimum means the experiment supports a best point **within the tested region**, not necessarily a global biological maximum.
+
+## 4. Explicit bounds
+
+```{r}
+b <- list(
+  N=range(dat$N),
+  K=range(dat$K),
+  Irrigation=range(dat$Irrigation)
+)
+
+opt_b <- rsm_optimize(
+  fit,
+  goal="max",
+  method="L-BFGS-B",
+  bounds=b
+)
+```
+
+Use tighter bounds when engineering, agronomic, regulatory, or safety constraints restrict the feasible operating region.
+
+## 5. Grid search
+
+```{r}
+opt_grid <- rsm_optimize(
+  fit,
+  goal="max",
+  method="grid",
+  grid_n=41
+)
+```
+
+Grid search is transparent and useful for teaching and verification, but resolution grows rapidly with dimensionality.
+
+## 6. L-BFGS-B
+
+```{r}
+opt_lbfgs <- rsm_optimize(
+  fit,
+  goal="max",
+  method="L-BFGS-B"
+)
+```
+
+Efficient for smooth bounded surfaces.
+
+## 7. Genetic algorithm
+
+```{r}
+opt_ga <- rsm_optimize(
+  fit,
+  goal="max",
+  method="GA",
+  seed=602,
+  ga_control=list(popSize=100,maxiter=400,run=80)
+)
+```
+
+Use a stochastic global search when multimodality or difficult constraints make local search less reliable. Freeze the seed for reproducibility.
+
+## 8. Hybrid optimization
+
+```{r}
+opt_hybrid <- rsm_optimize(
+  fit,
+  goal="max",
+  method="hybrid",
+  seed=602
+)
+```
+
+Hybrid optimization combines global exploration with local refinement.
+
+## 9. Compare all methods
+
+```{r}
+all_opt <- rsm_optimize(
+  fit,
+  goal="max",
+  method="all",
+  seed=602
+)
+all_opt
+```
+
+### Interpretation
+
+Agreement among methods on a smooth surface increases confidence in numerical optimization. Disagreement should trigger inspection of flat ridges, multiple local extrema, scaling, and bounds.
+
+## 10. Minimize a response
+
+```{r}
+# Example for disease or contaminant concentration:
+# rsm_optimize(disease_fit, goal="min", method="hybrid", seed=603)
+```
+
+The same framework applies to maximization and minimization.
+
+## 11. Hit a target instead of max/min
+
+Suppose a response should be near a quality target rather than as large as possible.
+
+```{r}
+opt_target <- rsm_optimize(
+  fit,
+  goal="target",
+  target=85,
+  method="hybrid",
+  seed=604
+)
+```
+
+Target optimization is useful for pH, firmness, concentration, moisture, and quality specifications.
+
+## 12. Why optimum coordinates are uncertain
+
+If fitted coefficients are random, the optimum is a derived random quantity:
+
+\[
+\hat{\mathbf{x}}_{opt}=h(\hat{\boldsymbol\beta}).
+\]
+
+A coefficient table does not directly quantify uncertainty in \(h(\cdot)\).
+
+## 13. Bootstrap / coefficient-simulation optimum uncertainty
+
+```{r}
+unc <- rsm_optimum_ci(
+  fit,
+  optimum=opt_hybrid,
+  B=999,
+  conf=.95,
+  optimizer="L-BFGS-B",
+  seed=605
+)
+unc
+```
+
+Inspect successful and failed re-optimizations. Failed replicates are information about numerical or model instability and should not be silently discarded.
+
+## 14. Plot the optimum cloud
+
+```{r}
+rsm_plot_optimum_uncertainty(
+  unc,
+  x="N",
+  y="K",
+  conf=.95
+)
+```
+
+For three-factor models, plot multiple 2D projections or conditional summaries.
+
+### Interpretation
+
+An elongated cloud indicates correlated uncertainty in factor settings. A cloud concentrated on a boundary can indicate truncation by the feasible region rather than precise knowledge of an unconstrained biological optimum.
+
+## 15. Joint optimum region
+
+```{r}
+reg <- rsm_optimum_region(
+  unc,
+  factors=c("N","K"),
+  conf=.95,
+  n=300
+)
+head(reg)
+```
+
+The current implementation is an approximate region based on the bootstrap/simulation distribution; it should not be described as an exact Fieller-type confidence set.
+
+## 16. Near-optimal region
+
+A practical operating zone can be more useful than a single point.
+
+```{r}
+near <- rsm_near_optimal(
+  fit,
+  optimum=opt_hybrid,
+  tolerance=.05,
+  goal="max",
+  n=41,
+  max_points=150000,
+  seed=606
+)
+head(near)
+```
+
+For maximization, a 5% tolerance represents points with fitted response close to the best fitted response under the function's definition.
+
+### Interpretation
+
+Near-optimal regions can reveal opportunities to:
+
+- reduce input without substantial yield loss;
+- choose settings less sensitive to operational error;
+- avoid poorly predicted boundaries;
+- trade small response losses for economic or environmental benefits.
+
+## 17. Optimum stability
+
+```{r}
+stab <- rsm_optimum_stability(
+  unc,
+  fit,
+  tolerance=.10
+)
+stab
+```
+
+This asks whether uncertainty replicates stay within a practically acceptable neighborhood of the reference decision.
+
+## 18. Uncertainty-aware optimization
+
+```{r}
+rob <- rsm_robust_optimize(
+  fit,
+  goal="max",
+  lambda=1.96,
+  method="L-BFGS-B",
+  seed=607
+)
+rob
+```
+
+This penalizes poorly supported high predictions according to the package's uncertainty criterion.
+
+### Interpretation
+
+A conservative optimum can be preferable when the apparent peak is located in a region of high prediction uncertainty.
+
+## 19. Visual comparison of fitted and conservative decisions
+
+```{r}
+rsm_plot(
+  fit,
+  type="contour",
+  x="N",
+  y="K",
+  at=list(Irrigation=median(dat$Irrigation)),
+  optimum=opt_hybrid
+)
+```
+
+Add the uncertainty-aware point in a custom `ggplot2` layer when preparing publication figures.
+
+## 20. Economic optimization
+
+Biological maximum:
+
+\[
+\max_{\mathbf x}\hat y(\mathbf x).
+\]
+
+Economic objective:
+
+\[
+\max_{\mathbf x}\left[
+P_y\hat y(\mathbf x)
+-\sum_i c_i(x_i-x_{i,0})
+-C_0
+\right].
+\]
+
+Here \(x_{i,0}\) is a baseline at which incremental factor cost begins.
+
+```{r}
+eco <- rsm_economic_optimum(
+  fit,
+  response_price=12,
+  factor_cost=c(
+    N=0.80,
+    K=0.55,
+    Irrigation=35
+  ),
+  fixed_cost=120,
+  baseline=c(
+    N=min(dat$N),
+    K=min(dat$K),
+    Irrigation=min(dat$Irrigation)
+  ),
+  method="L-BFGS-B",
+  seed=608
+)
+eco
+```
+
+## 21. Why baseline matters
+
+Using incremental input above a baseline prevents nonsensical negative costs when factors are coded around zero. Economic assumptions should be stated in natural units.
+
+## 22. Biological versus economic optimum
+
+Report both:
+
+```{r}
+eco$biological_optimum
+eco$solution
+```
+
+### Interpretation
+
+The economic optimum can use less input than the biological maximum because the marginal response no longer pays for the marginal input.
+
+This is a decision consequence, not evidence that the biological model was wrong.
+
+## 23. Sensitivity to price assumptions
+
+```{r}
+prices <- c(8,10,12,15,20)
+
+sens <- lapply(prices, function(py) {
+  ans <- rsm_economic_optimum(
+    fit,
+    response_price=py,
+    factor_cost=c(N=.80,K=.55,Irrigation=35),
+    fixed_cost=120,
+    baseline=c(N=min(dat$N),K=min(dat$K),Irrigation=min(dat$Irrigation)),
+    method="L-BFGS-B"
+  )
+  cbind(data.frame(price=py), as.data.frame(as.list(ans$solution)), data.frame(profit=ans$profit))
+})
+do.call(rbind,sens)
+```
+
+### Interpretation
+
+An economic optimum without sensitivity to uncertain prices can be less informative than a near-optimal economic region across plausible prices.
+
+## 24. Boundary optima need explicit language
+
+If any optimal coordinate equals its lower or upper bound, write:
+
+> “The best fitted setting within the experimental region occurred on the upper N boundary.”
+
+Do not write:
+
+> “The true optimum N rate is the upper tested dose.”
+
+The first is supported by the experiment. The second extrapolates beyond the evidence.
+
+## 25. Uncertainty method depends on model family
+
+For Gaussian polynomial models, coefficient simulation and bootstrap-style workflows are natural.
+
+For likelihood GLMs, parametric simulate/refit/re-optimize is preferred where implemented.
+
+For quasi families, asymptotic coefficient simulation is more appropriate than pretending a full likelihood exists.
+
+For nonlinear models, refit bootstrap is preferable when the error model supports it; generalized nonlinear variance/correlation structures need additional care.
+
+Always inspect the `method` stored in the uncertainty object.
+
+## 26. Three decision scenarios
+
+### Scenario A: sharp interior maximum
+
+Expect a compact optimum cloud and relatively small near-optimal zone.
+
+### Scenario B: broad plateau
+
+Expect large coordinate uncertainty but potentially stable predicted response. Report an operating zone rather than one coordinate.
+
+### Scenario C: boundary optimum
+
+Expect truncation. Consider a new experiment beyond the current boundary only if scientifically feasible and safe.
+
+## 27. Three complete code recipes
+
+### Classical yield maximum
+
+```{r}
+fit <- rsm_fit(dat,"Yield",c("N","K","Irrigation"),order=2)
+opt <- rsm_optimize(fit,goal="max",method="hybrid",seed=700)
+unc <- rsm_optimum_ci(fit,optimum=opt,B=999,seed=700)
+near <- rsm_near_optimal(fit,optimum=opt,tolerance=.05,seed=700)
+```
+
+### GLM pest minimum
+
+```{r}
+# pest_fit <- rsm_glm_fit(pest,"Count",c("Dose","Time"),family=poisson())
+# pest_opt <- rsm_optimize(pest_fit,goal="min",scale="response")
+# pest_unc <- rsm_optimum_ci(pest_fit,pest_opt,B=999,seed=701)
+```
+
+### Nonlinear fertilizer maximum
+
+```{r}
+# nl_fit <- rsm_nonlinear_fit(nd,"Yield",c("N","P"),
+#   model="mitscherlich2_product",start="ga",seed=702)
+# nl_opt <- rsm_optimize(nl_fit,goal="max",method="hybrid",seed=702)
+# nl_unc <- rsm_optimum_ci(nl_fit,nl_opt,B=999,seed=702)
+```
+
+## 28. Common mistakes
+
+1. Reporting the unconstrained stationary point as a feasible recommendation.
+2. Ignoring boundary status.
+3. Giving optimum coordinates without uncertainty.
+4. Hiding failed bootstrap/refit replicates.
+5. Treating a covariance ellipse approximation as an exact confidence region.
+6. Reporting a single point when a broad near-optimal zone exists.
+7. Optimizing a model that failed diagnostics.
+8. Using economic costs on coded units without defining a natural-unit baseline.
+9. Treating one price scenario as permanent truth.
+
+## 29. Minimum reporting checklist
+
+- [ ] Objective (`max`, `min`, `target`) stated.
+- [ ] Factor bounds stated in natural units.
+- [ ] Optimization method reported.
+- [ ] Random seed reported for stochastic optimization.
+- [ ] Boundary coordinates identified.
+- [ ] Uncertainty method, B, and confidence level reported.
+- [ ] Failed uncertainty replicates reported.
+- [ ] Joint region described as approximate when appropriate.
+- [ ] Near-optimal tolerance defined.
+- [ ] Stability criterion defined.
+- [ ] Economic price/cost units stated.
+- [ ] Cost baseline stated.
+- [ ] Biological and economic optima distinguished.
+- [ ] Price/cost sensitivity considered when decisions depend strongly on them.
+
+## 30. Where to go next
+
+Continue to **Multiresponse Optimization and Tier 3** when several responses conflict or when simple response-surface engines do not adequately represent the predictive structure.

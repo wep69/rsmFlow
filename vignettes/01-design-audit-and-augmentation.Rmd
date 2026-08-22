@@ -1,0 +1,469 @@
+---
+title: "rsmFlow: Design Audit, Prediction Precision, and Augmentation"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{rsmFlow: Design Audit, Prediction Precision, and Augmentation}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+bibliography: references.bib
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(collapse=TRUE, comment="#>", fig.width=7, fig.height=5, dpi=120, eval=FALSE)
+```
+
+# Design audit, prediction precision, and augmentation
+
+**Role in the vignette curriculum.** This deep dive owns design generation, coding, non-orthogonality, estimability, prediction variance, FDS, VDG, rotatability, design comparison, and augmentation. Model interpretation and optimization are developed in later vignettes.
+
+> The examples are intentionally not executed during vignette build in this development snapshot. Full runtime certification remains a separate release gate.
+
+## 1. Why design quality is the first modeling question
+
+Response-surface inference begins before a regression model is fitted. The experimental runs determine which effects can be estimated, how correlated those estimates will be, and where predictions will be precise. A perfectly estimated numerical optimum is meaningless if the fitted model is poorly supported in the region containing that optimum.
+
+The core design questions are therefore:
+
+1. Is the intended polynomial model estimable?
+2. Are some model terms nearly redundant?
+3. How much does scaling contribute to apparent numerical instability?
+4. Is prediction variance reasonably distributed over the design space?
+5. Is the design appropriate for parameter estimation, prediction, or both?
+6. If information is weak, which additional runs improve it most efficiently?
+
+These questions connect classical response-surface design theory [@BoxDraper1959] with modern diagnostics for imperfect real experiments [@ODriscoll2015].
+
+## 2. Start from the experimental region
+
+```{r}
+library(rsmFlow)
+
+p <- system.file("extdata", "agronomy_rsm_nonorthogonal.csv", package="rsmFlow")
+dat <- read.csv(p)
+str(dat)
+summary(dat)
+```
+
+Record natural units explicitly. Never allow coded coordinates to erase the scientific meaning of the factor limits.
+
+```{r}
+factor_ranges <- data.frame(
+  factor = c("N", "K", "Irrigation"),
+  lower = sapply(dat[c("N","K","Irrigation")], min),
+  upper = sapply(dat[c("N","K","Irrigation")], max)
+)
+factor_ranges
+```
+
+A useful pre-analysis table contains response unit, factor units, lower and upper bounds, number of unique settings, replication, blocks, and infeasible combinations.
+
+## 3. Coding and decoding
+
+Coding puts factor displacements on comparable scales. For factor \(X\), a common transformation is
+
+\[
+x = \frac{X-X_0}{\Delta X}.
+\]
+
+```{r}
+coded <- rsm_code(
+  dat,
+  factors = c("N","K","Irrigation")
+)
+head(coded)
+coding <- attr(coded, "rsmFlow_coding")
+coding
+```
+
+Return to natural units with:
+
+```{r}
+natural <- rsm_decode(coded, coding)
+head(natural)
+```
+
+### Interpretation
+
+Coding can improve numerical conditioning and makes geometric quantities easier to compare across factors. It does **not** create experimental information. A nearly aliased design remains nearly aliased after rescaling.
+
+## 4. Generate standard response-surface designs
+
+### 4.1 Central Composite Design
+
+```{r}
+ccd <- rsm_design(
+  factors = c("N","K","Irrigation"),
+  type = "ccd",
+  n0 = 6,
+  alpha = "rotatable",
+  seed = 101
+)
+head(ccd)
+```
+
+Face-centered and inscribed variants are available:
+
+```{r}
+ccf <- rsm_design(c("N","K","Irrigation"), type="ccd_face", n0=6, seed=101)
+cci <- rsm_design(c("N","K","Irrigation"), type="ccd_inscribed", n0=6, seed=101)
+```
+
+### 4.2 Box-Behnken design
+
+```{r}
+bbd <- rsm_design(
+  factors = c("N","K","Irrigation"),
+  type = "bbd",
+  n0 = 5,
+  seed = 102
+)
+```
+
+### 4.3 D- and I-oriented designs
+
+```{r}
+cand <- expand.grid(
+  N = seq(-1, 1, length.out=9),
+  K = seq(-1, 1, length.out=9),
+  Irrigation = seq(-1, 1, length.out=7)
+)
+
+d_opt <- rsm_design(
+  factors = c("N","K","Irrigation"),
+  type = "d_optimal",
+  runs = 20,
+  candidates = cand,
+  seed = 103
+)
+
+i_opt <- rsm_design(
+  factors = c("N","K","Irrigation"),
+  type = "i_optimal",
+  runs = 20,
+  candidates = cand,
+  seed = 103
+)
+```
+
+**Scientific distinction.** D-optimality emphasizes information for model coefficients. I-oriented criteria emphasize average prediction variance over a region. Exact criterion behavior depends on the backend and must be runtime-validated before formal design claims.
+
+## 5. Custom and imperfect designs are first-class inputs
+
+Real experiments can lose runs, inherit legacy layouts, or combine feasible points from operational constraints. `rsmFlow` does not require a textbook design to fit a model.
+
+```{r}
+custom <- rsm_design(
+  factors = c("N","K","Irrigation"),
+  type = "custom",
+  data = dat[c("N","K","Irrigation")]
+)
+```
+
+The important question becomes: **what information does this custom design support?**
+
+## 6. Fit the intended model before auditing its information
+
+```{r}
+fit <- rsm_fit(
+  dat,
+  response = "Yield",
+  factors = c("N","K","Irrigation"),
+  order = 2
+)
+```
+
+Audit:
+
+```{r}
+a <- rsm_design_audit(fit)
+a
+```
+
+The audit should be read as a bundle of evidence rather than a single pass/fail score.
+
+| Diagnostic | Main question |
+|---|---|
+| Rank | Are all requested terms estimable? |
+| Aliases | Which terms are linearly dependent? |
+| Condition number | Is the design matrix numerically unstable? |
+| VIF-like inflation | Are term estimates strongly correlated? |
+| Term correlation | Which columns of the model matrix move together? |
+| Prediction variance | Where are predictions weakly supported? |
+| D/A/E/G-like metrics | How informative is the design under different objectives? |
+| Rotatability proxy | Does precision depend mainly on distance from center? |
+
+## 7. Non-orthogonality is not automatic invalidity
+
+```{r}
+orth <- rsm_orthogonality(fit)
+orth
+```
+
+A full-rank non-orthogonal design still supports ordinary least squares. What changes is the covariance structure of estimated effects and predictions.
+
+Potential consequences include:
+
+- inflated standard errors;
+- unstable coefficient signs in highly correlated parameterizations;
+- difficulty interpreting isolated terms;
+- nonuniform prediction variance;
+- strong dependence of the optimum on a small part of the design region.
+
+### What not to say
+
+Avoid statements such as:
+
+> “The design is non-orthogonal, therefore RSM cannot be used.”
+
+A more defensible statement is:
+
+> “The second-order model was full rank, but substantial term correlation and heterogeneous prediction precision reduced the reliability of individual coefficient interpretation in parts of the design space.”
+
+## 8. Inspect prediction variance directly
+
+```{r}
+pv <- rsm_prediction_variance(
+  fit,
+  n = 31,
+  scaled = TRUE
+)
+head(pv)
+```
+
+Plot it:
+
+```{r}
+rsm_plot(
+  fit,
+  type = "prediction_variance",
+  interactive = FALSE
+)
+```
+
+### Interpretation
+
+Prediction variance is often more actionable than coefficient correlation when the scientific objective is optimization. Ask:
+
+1. Is the fitted optimum located where prediction variance is low or high?
+2. Are boundary regions much less precise than the center?
+3. Does the design provide acceptable precision throughout the feasible operating region?
+
+## 9. Fraction of Design Space
+
+```{r}
+fds <- rsm_fds(
+  fit,
+  n = 20000,
+  seed = 202
+)
+head(fds)
+```
+
+```{r}
+rsm_plot(fit, type="fds")
+```
+
+The FDS curve expresses how much of the region is covered below successive prediction-variance levels.
+
+### Interpretation
+
+Two designs can have similar determinant-based efficiency but different distributions of prediction variance. FDS is useful when broad-region prediction quality matters.
+
+## 10. Variance Dispersion Graph
+
+```{r}
+vdg <- rsm_vdg(
+  fit,
+  radii = seq(0, 1, length.out=15),
+  points = 1500,
+  seed = 203
+)
+vdg
+```
+
+```{r}
+rsm_plot(fit, type="vdg")
+```
+
+VDG summarizes prediction variance at increasing radii from the design center. It helps reveal whether precision changes directionally or primarily with distance.
+
+## 11. Rotatability
+
+```{r}
+rot <- rsm_rotatability(
+  fit,
+  radii = c(0.25, 0.50, 0.75, 1.0),
+  points = 1000,
+  seed = 204
+)
+rot
+```
+
+### Interpretation
+
+Rotatability is desirable when equal-distance points should have comparable precision regardless of direction. It is not a universal requirement. A constrained agronomic region may make directional precision more relevant than perfect rotational symmetry.
+
+## 12. Compare competing designs using several criteria
+
+```{r}
+cmp <- rsm_compare_designs(
+  CCD = ccd,
+  CCF = ccf,
+  BBD = bbd,
+  Dopt = d_opt,
+  factors = c("N","K","Irrigation"),
+  order = 2
+)
+cmp
+```
+
+Do not turn this into a single leaderboard. A design can be attractive for coefficient estimation but less attractive for broad prediction or operational feasibility.
+
+## 13. Design augmentation
+
+Suppose the original experiment has already been performed and the audit reveals poor precision. The package can propose additional settings without deleting or altering observed runs.
+
+```{r}
+aug_D <- rsm_augment(
+  fit,
+  n_add = 6,
+  objective = "D",
+  seed = 205
+)
+aug_D
+```
+
+Other objectives:
+
+```{r}
+aug_A <- rsm_augment(fit, n_add=6, objective="A", seed=205)
+aug_I <- rsm_augment(fit, n_add=6, objective="I", seed=205)
+aug_G <- rsm_augment(fit, n_add=6, objective="G", seed=205)
+aug_k <- rsm_augment(fit, n_add=6, objective="condition", seed=205)
+```
+
+### Scientific workflow for augmentation
+
+1. Preserve the original observations.
+2. Define feasible candidate settings.
+3. Choose an objective connected to the scientific goal.
+4. Inspect proposed additions for physical feasibility.
+5. Compare predicted information before and after augmentation.
+6. Conduct the new experimental runs.
+7. Refit using measured responses.
+
+`rsm_augment()` proposes settings. It never fabricates responses.
+
+## 14. A reproducible comparison before and after augmentation
+
+```{r}
+# Schematic: after physically conducting the proposed runs,
+# append measured responses and refit.
+
+# dat_augmented <- rbind(dat, measured_new_runs)
+# fit_augmented <- rsm_fit(
+#   dat_augmented, "Yield",
+#   c("N","K","Irrigation"), order=2
+# )
+#
+# rsm_compare_designs(
+#   Original = dat,
+#   Augmented = dat_augmented,
+#   factors = c("N","K","Irrigation"),
+#   order = 2
+# )
+```
+
+Never append model-predicted responses and call the resulting object an augmented experiment.
+
+## 15. Design graphics for teaching
+
+```{r}
+rsm_plot(fit, type="design")
+rsm_plot(fit, type="term_correlation")
+rsm_plot(fit, type="prediction_variance")
+```
+
+For three or more factors, use slices and conditional views rather than trying to display the full geometry in one panel.
+
+## 16. Three realistic design scenarios
+
+### Scenario A: textbook CCD
+
+Goal: teach curvature, center replication, and rotatability.
+
+```{r}
+des_A <- rsm_design(
+  factors=c("N","P"),
+  type="ccd",
+  n0=6,
+  alpha="rotatable",
+  seed=300
+)
+```
+
+### Scenario B: constrained face-centered design
+
+Goal: avoid axial points outside practical factor limits.
+
+```{r}
+des_B <- rsm_design(
+  factors=c("Temperature","Moisture","Time"),
+  type="ccd_face",
+  n0=5,
+  seed=301
+)
+```
+
+### Scenario C: legacy non-orthogonal field trial
+
+Goal: quantify what can still be estimated and where prediction is weak.
+
+```{r}
+dat_C <- read.csv(p)
+fit_C <- rsm_fit(dat_C, "Yield", c("N","K","Irrigation"), order=2)
+rsm_design_audit(fit_C)
+rsm_fds(fit_C)
+rsm_vdg(fit_C)
+```
+
+## 17. Common mistakes
+
+### Mistake 1: using VIF as a binary acceptance rule
+
+VIF-like inflation is evidence about term dependence, not a universal reject threshold for RSM.
+
+### Mistake 2: diagnosing only the fitted coefficients
+
+Prediction precision can be poor even when coefficient tables appear stable.
+
+### Mistake 3: declaring D-optimality sufficient for every goal
+
+If the primary objective is broad prediction or optimization in a specified region, prediction-oriented criteria should also be inspected.
+
+### Mistake 4: adding arbitrary runs
+
+Augmentation should be criterion-driven and physically feasible.
+
+### Mistake 5: forgetting the experimental boundary
+
+A design is defined over a region, not over all real-number factor combinations.
+
+## 18. Minimum reporting checklist for design quality
+
+- [ ] Natural factor units and bounds reported.
+- [ ] Design family or origin described.
+- [ ] Coding transformation documented when used.
+- [ ] Intended model order declared before audit.
+- [ ] Rank/estimability checked.
+- [ ] Severe aliases or correlations reported.
+- [ ] Raw and scaled conditioning distinguished where relevant.
+- [ ] Prediction variance assessed for optimization studies.
+- [ ] FDS/VDG used when region-wide precision is important.
+- [ ] Rotatability interpreted as a design property, not a universal requirement.
+- [ ] Augmentation objective and candidate region documented.
+- [ ] Proposed runs distinguished from observed runs.
+
+## 19. Where to go next
+
+Continue to **Classical RSM, Geometry, and Diagnostics** for model hierarchy, lack of fit, canonical analysis, steepest paths, and ridge behavior. Optimization is intentionally deferred until model adequacy and geometry have been established.

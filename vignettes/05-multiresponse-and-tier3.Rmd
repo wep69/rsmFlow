@@ -1,0 +1,549 @@
+---
+title: "rsmFlow: Multiresponse Optimization and Tier-3 Surrogates"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{rsmFlow: Multiresponse Optimization and Tier-3 Surrogates}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+bibliography: references.bib
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(collapse=TRUE, comment="#>", fig.width=7, fig.height=5, dpi=120, eval=FALSE)
+```
+
+# Multiresponse optimization and Tier-3 surrogates
+
+**Role in the vignette curriculum.** This deep dive owns multiresponse desirability, weighted/distance/epsilon compromises, Pareto fronts and optional NSGA-II, advanced GP/GAM/TPS/RF/NN surrogate models, cross-validation, engine/optimum comparison, and one-step Bayesian optimization. Single-response uncertainty and economic optimization are developed elsewhere.
+
+## 1. Why multiple responses change the decision problem
+
+Many experiments have more than one scientifically relevant outcome. A fertilizer combination can increase yield while reducing quality or increasing disease. A processing condition can maximize extraction while also increasing energy use. A formulation can improve efficacy while moving a quality attribute away from its target.
+
+In such problems there is usually no single response surface whose maximum solves the entire decision.
+
+`rsmFlow` supports several transparent compromise strategies:
+
+- individual and overall desirability [@DerringerSuich1980];
+- weighted compromise;
+- distance-to-target;
+- epsilon constraints;
+- Pareto fronts;
+- optional NSGA-II search.
+
+## 2. Create a realistic three-response teaching experiment
+
+```{r}
+library(rsmFlow)
+set.seed(801)
+md <- expand.grid(
+  N=seq(40,160,length.out=7),
+  Irrigation=seq(0.55,1.25,length.out=7)
+)
+
+md$Yield <- 9.5 + 0.035*md$N + 4.0*md$Irrigation -
+  0.00014*md$N^2 - 1.5*md$Irrigation^2 +
+  0.008*md$N*md$Irrigation + rnorm(nrow(md),0,.10)
+
+md$Quality <- 80 + 0.035*md$N + 2.2*md$Irrigation -
+  0.00018*(md$N-100)^2 - 2.8*(md$Irrigation-.85)^2 +
+  rnorm(nrow(md),0,.15)
+
+md$Disease <- 18 - 0.030*md$N + 8.5*(md$Irrigation-.65) +
+  0.00010*(md$N-90)^2 + rnorm(nrow(md),0,.18)
+```
+
+Fit one response model per outcome:
+
+```{r}
+fit_y <- rsm_fit(md,"Yield",c("N","Irrigation"),order=2)
+fit_q <- rsm_fit(md,"Quality",c("N","Irrigation"),order=2)
+fit_d <- rsm_fit(md,"Disease",c("N","Irrigation"),order=2)
+```
+
+Before combining them, diagnose each model separately.
+
+```{r}
+rsm_diagnostics(fit_y)
+rsm_diagnostics(fit_q)
+rsm_diagnostics(fit_d)
+```
+
+A multiresponse compromise cannot rescue an inadequate individual response model.
+
+## 3. Individual desirability
+
+Desirability maps each response to \([0,1]\), where 0 is unacceptable and 1 is most desirable under the declared preference rule.
+
+### Maximize yield
+
+```{r}
+yhat <- predict(fit_y, md)
+d_y <- rsm_desirability(
+  yhat,
+  goal="max",
+  low=quantile(yhat,.10),
+  high=quantile(yhat,.90),
+  weight=1
+)
+```
+
+### Minimize disease
+
+```{r}
+dhat <- predict(fit_d, md)
+d_d <- rsm_desirability(
+  dhat,
+  goal="min",
+  low=quantile(dhat,.10),
+  high=quantile(dhat,.90),
+  weight=1
+)
+```
+
+### Hit a quality target
+
+```{r}
+qhat <- predict(fit_q, md)
+d_q <- rsm_desirability(
+  qhat,
+  goal="target",
+  low=80,
+  target=83,
+  high=85,
+  weight=1
+)
+```
+
+### Interpretation
+
+Desirability is a decision transformation, not a probability and not an inferential statistic. The limits and targets must be scientifically justified.
+
+## 4. Overall desirability
+
+```{r}
+limits <- list(
+  list(low=10, high=14),
+  list(low=80, target=83, high=85),
+  list(low=8, high=18)
+)
+
+des_opt <- rsm_multiopt(
+  fits=list(fit_y,fit_q,fit_d),
+  goals=c("max","target","min"),
+  limits=limits,
+  method="desirability",
+  importance=c(1,1,1),
+  optimizer="GA",
+  seed=802
+)
+des_opt
+```
+
+### Interpretation
+
+The solution is conditional on the desirability specification. Report the limits, targets, weights, and final individual desirabilities together with the overall score.
+
+## 5. Visualize the desirability surface
+
+```{r}
+dsurf <- rsm_desirability_surface(
+  fits=list(fit_y,fit_q,fit_d),
+  goals=c("max","target","min"),
+  limits=limits,
+  importance=c(1,1,1),
+  x="N",
+  y="Irrigation",
+  n=100
+)
+dsurf
+```
+
+The surface can reveal whether the compromise is sharp or whether a broad desirable operating zone exists.
+
+## 6. Weighted compromise
+
+```{r}
+weighted <- rsm_multiopt(
+  fits=list(fit_y,fit_q,fit_d),
+  goals=c("max","max","min"),
+  limits=limits,
+  method="weighted",
+  importance=c(2,1,1.5),
+  optimizer="GA",
+  seed=803
+)
+weighted
+```
+
+Weights encode analyst or stakeholder priorities. Sensitivity analysis is essential.
+
+## 7. Distance-to-target
+
+```{r}
+distance <- rsm_multiopt(
+  fits=list(fit_y,fit_q),
+  goals=c("target","target"),
+  limits=list(
+    list(low=10,target=13,high=14),
+    list(low=80,target=83,high=85)
+  ),
+  method="distance",
+  importance=c(1,1),
+  seed=804
+)
+distance
+```
+
+Useful when several responses have explicit engineering or quality targets.
+
+## 8. Epsilon constraints
+
+Suppose yield is the primary objective and disease must stay below a hard limit.
+
+```{r}
+eps <- rsm_multiopt(
+  fits=list(fit_y,fit_d),
+  goals=c("max","min"),
+  limits=list(
+    list(low=10,high=14),
+    list(low=8,high=18)
+  ),
+  method="epsilon",
+  primary=1,
+  epsilon=list(NULL, 12),
+  seed=805
+)
+eps
+```
+
+Epsilon constraints are often preferable when one response represents a mandatory safety, quality, or environmental threshold rather than a symmetric preference.
+
+## 9. Pareto front by sampling
+
+```{r}
+pareto_sample <- rsm_pareto(
+  fits=list(fit_y,fit_d),
+  goals=c("max","min"),
+  n=10000,
+  engine="sample",
+  seed=806
+)
+head(pareto_sample)
+```
+
+Plot:
+
+```{r}
+rsm_plot_pareto(
+  pareto_sample,
+  response_x="response1",
+  response_y="response2"
+)
+```
+
+### Interpretation
+
+A Pareto point is non-dominated. Improving one response from that point requires worsening at least one other response.
+
+A Pareto front presents trade-offs; it does not choose a final policy for the analyst.
+
+## 10. Optional NSGA-II
+
+```{r}
+if (requireNamespace("mco", quietly=TRUE)) {
+  pareto_nsga <- rsm_pareto(
+    fits=list(fit_y,fit_d),
+    goals=c("max","min"),
+    engine="NSGA2",
+    seed=807
+  )
+  pareto_nsga
+}
+```
+
+NSGA-II is appropriate when continuous multiobjective search is preferable to a finite random candidate cloud. Backend behavior must be checked under the installed `mco` version.
+
+## 11. Overlaid constraints
+
+```{r}
+over <- rsm_overlaid_contour(
+  fits=list(fit_y,fit_q,fit_d),
+  constraints=list(
+    list(goal="max", low=12.5),
+    list(goal="max", low=82),
+    list(goal="min", high=12)
+  ),
+  x="N",
+  y="Irrigation",
+  n=120
+)
+over
+```
+
+This asks a different question from desirability: **where are all hard requirements satisfied simultaneously?**
+
+# Part II. Tier-3 surrogate modeling
+
+## 12. Why a Tier-3 layer exists
+
+Classical RSM is interpretable and efficient. GLM and nonlinear models extend it when distribution or biological shape requires it. Tier-3 surrogates should be used only when these simpler models do not adequately represent the predictive problem.
+
+Available methods:
+
+```{r}
+# methods accepted by rsm_surrogate():
+# "quadratic", "gam", "gp", "tps", "rf", "nn"
+```
+
+The package does not automatically declare a Tier-3 model superior because training error is lower.
+
+## 13. Generate a nonlinear teaching surface
+
+```{r}
+set.seed(810)
+sd <- expand.grid(
+  x1=seq(-1,1,length.out=11),
+  x2=seq(-1,1,length.out=11)
+)
+sd$y <- 4 + sin(pi*sd$x1)*cos(pi*sd$x2) +
+  0.6*sd$x1*sd$x2 + rnorm(nrow(sd),0,.08)
+```
+
+## 14. Quadratic benchmark
+
+```{r}
+quad <- rsm_surrogate(
+  sd,"y",c("x1","x2"),
+  method="quadratic",
+  seed=811
+)
+```
+
+A simple benchmark is essential. Advanced methods should demonstrate value relative to an interpretable baseline.
+
+## 15. GAM
+
+```{r}
+if (requireNamespace("mgcv", quietly=TRUE)) {
+  gam_fit <- rsm_surrogate(
+    sd,"y",c("x1","x2"),
+    method="gam",
+    seed=811
+  )
+}
+```
+
+The GAM implementation uses smooth factor effects and interaction structure suitable for flexible response surfaces.
+
+## 16. Thin-plate spline
+
+```{r}
+if (requireNamespace("mgcv", quietly=TRUE)) {
+  tps_fit <- rsm_surrogate(
+    sd,"y",c("x1","x2"),
+    method="tps",
+    seed=811
+  )
+}
+```
+
+TPS provides a joint smooth surface rather than a purely additive interpretation.
+
+## 17. Gaussian Process
+
+```{r}
+if (requireNamespace("DiceKriging", quietly=TRUE)) {
+  gp_fit <- rsm_surrogate(
+    sd,"y",c("x1","x2"),
+    method="gp",
+    seed=811
+  )
+}
+```
+
+Gaussian Processes are especially useful when predictive uncertainty is needed for sequential experimentation [@JonesSchonlauWelch1998].
+
+## 18. Random Forest
+
+```{r}
+if (requireNamespace("ranger", quietly=TRUE)) {
+  rf_fit <- rsm_surrogate(
+    sd,"y",c("x1","x2"),
+    method="rf",
+    seed=811
+  )
+}
+```
+
+RF is flexible but generally less transparent as a smooth response-surface equation.
+
+## 19. Neural network
+
+```{r}
+if (requireNamespace("nnet", quietly=TRUE)) {
+  nn_fit <- rsm_surrogate(
+    sd,"y",c("x1","x2"),
+    method="nn",
+    seed=811
+  )
+}
+```
+
+Neural networks can approximate complex surfaces but require careful scaling, tuning, and validation.
+
+## 20. Surrogate optimization
+
+```{r}
+if (exists("gp_fit")) {
+  gp_opt <- rsm_surrogate_optimize(
+    gp_fit,
+    goal="max",
+    method="L-BFGS-B",
+    seed=812
+  )
+  gp_opt
+}
+```
+
+A flexible predictor can generate a numerically sharp optimum even when predictive uncertainty is high. Do not separate optimization from validation.
+
+## 21. Cross-validation
+
+For `rsmFlow_fit` objects:
+
+```{r}
+classical <- rsm_fit(sd,"y",c("x1","x2"),order=2)
+cv_classical <- rsm_cv(classical,folds=5,repeats=10,seed=813)
+cv_classical
+```
+
+For Tier-3 engines, use backend-aware validation and `rsm_compare_engines()` summaries where available.
+
+## 22. Compare engines without automatic ranking
+
+```{r}
+models <- list(classical=classical)
+if (exists("gam_fit")) models$gam <- gam_fit
+if (exists("gp_fit")) models$gp <- gp_fit
+if (exists("rf_fit")) models$rf <- rf_fit
+if (exists("nn_fit")) models$nn <- nn_fit
+
+do.call(rsm_compare_engines, models)
+```
+
+Interpret separate dimensions:
+
+| Dimension | Question |
+|---|---|
+| Fit error | Does the model reproduce the training data? |
+| CV error | Does it generalize to held-out data? |
+| Diagnostics | Are residual/model assumptions defensible? |
+| Interpretability | Can the factor-response structure be explained? |
+| Optimum stability | Is the decision sensitive to model choice? |
+| Uncertainty | Is predictive uncertainty available/calibrated? |
+| Complexity | Is the added flexibility scientifically justified? |
+
+## 23. Compare optima directly
+
+```{r}
+opt_classical <- rsm_optimize(classical,goal="max",method="hybrid",seed=814)
+
+if (exists("gp_fit")) {
+  opt_gp <- rsm_surrogate_optimize(gp_fit,goal="max",method="L-BFGS-B",seed=814)
+  rsm_compare_optima(opt_classical,opt_gp)
+}
+```
+
+Similar RMSE can coexist with materially different optima. Decision comparison is therefore its own validation layer.
+
+## 24. One-step Bayesian optimization
+
+Expected Improvement combines predicted mean and uncertainty to propose a new candidate [@JonesSchonlauWelch1998].
+
+```{r}
+if (requireNamespace("DiceKriging", quietly=TRUE)) {
+  next_run <- rsm_bayes_opt(
+    sd,
+    response="y",
+    factors=c("x1","x2"),
+    goal="max",
+    n_candidates=10000,
+    xi=.01,
+    seed=815
+  )
+  next_run
+}
+```
+
+### Critical interpretation
+
+`rsm_bayes_opt()` proposes the next experimental setting. It does **not** generate a new observed response and does not automatically run a closed experimental loop.
+
+Correct workflow:
+
+1. fit the surrogate;
+2. calculate acquisition;
+3. propose the next setting;
+4. conduct the real experiment;
+5. measure the response;
+6. append the observation;
+7. refit and repeat if justified.
+
+## 25. Exploration versus exploitation
+
+The Expected Improvement parameter `xi` changes the balance between exploiting high predicted regions and exploring uncertainty.
+
+```{r}
+# Compare proposals:
+# rsm_bayes_opt(sd,"y",c("x1","x2"),xi=.001,seed=816)
+# rsm_bayes_opt(sd,"y",c("x1","x2"),xi=.05,seed=816)
+```
+
+Document acquisition settings in a sequential-design report.
+
+## 26. Three escalation scenarios
+
+### Scenario A: quadratic model works well
+
+Stay with classical RSM. Interpretability and established geometry are advantages.
+
+### Scenario B: smooth but strongly nonlinear surface
+
+Consider GAM/TPS or a biologically motivated nonlinear model before a black-box learner.
+
+### Scenario C: expensive experiment with sequential runs
+
+A GP with calibrated predictive uncertainty and Bayesian optimization can be valuable.
+
+## 27. Common mistakes
+
+1. Combining inadequate response models into a multiresponse score.
+2. Treating desirability thresholds as data-derived facts when they are policy choices.
+3. Reporting one Pareto solution without the trade-off front.
+4. Using NSGA-II when a simple grid already solves the low-dimensional problem transparently.
+5. Ranking Tier-3 models by in-sample RMSE.
+6. Ignoring optimum disagreement among models.
+7. Treating GP uncertainty as automatically calibrated.
+8. Treating a Bayesian-optimization proposal as an observed result.
+9. Adding an advanced model without a simpler benchmark.
+
+## 28. Minimum reporting checklist
+
+- [ ] Every response model diagnosed separately.
+- [ ] Goal for each response stated.
+- [ ] Desirability low/target/high values reported.
+- [ ] Importance weights reported and sensitivity explored.
+- [ ] Hard constraints distinguished from preferences.
+- [ ] Pareto definition and search method reported.
+- [ ] NSGA-II backend/version recorded when used.
+- [ ] Tier-3 method and tuning settings reported.
+- [ ] Validation method reported.
+- [ ] Simpler benchmark included.
+- [ ] Optima compared across plausible engines.
+- [ ] Bayesian acquisition function/parameters/seed reported.
+- [ ] Proposed next run clearly distinguished from a measured response.
+
+## 29. Where to go next
+
+Continue to **Visualization, Shiny, and Teaching** for a coherent communication layer, then to **Validation, Reproducibility, and Method Selection** for release-quality scientific verification.

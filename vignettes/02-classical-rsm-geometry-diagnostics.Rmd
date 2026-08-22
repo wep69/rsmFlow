@@ -1,0 +1,452 @@
+---
+title: "rsmFlow: Classical RSM, Geometry, and Diagnostics"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{rsmFlow: Classical RSM, Geometry, and Diagnostics}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+bibliography: references.bib
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(collapse=TRUE, comment="#>", fig.width=7, fig.height=5, dpi=120, eval=FALSE)
+```
+
+# Classical RSM, geometry, and diagnostics
+
+**Role in the vignette curriculum.** This vignette owns hierarchical polynomial fitting, residual and influence diagnostics, lack of fit, canonical analysis, steepest paths, and ridge exploration. Design construction is covered in the design vignette; bounded decision optimization and uncertainty are covered separately.
+
+## 1. Classical RSM is a local modeling language
+
+A second-order response surface is
+
+\[
+Y = \beta_0 + \sum_i \beta_i x_i + \sum_i \beta_{ii}x_i^2 + \sum_{i<j}\beta_{ij}x_i x_j + \varepsilon.
+\]
+
+The polynomial is especially useful for local exploration and optimization because its geometry is explicit. It should not automatically be interpreted as a mechanistic biological law.
+
+The package follows the classical RSM tradition exemplified by `rsm` [@Lenth2009], while adding a design-aware and decision-aware workflow.
+
+## 2. Load the agronomic teaching example
+
+```{r}
+library(rsmFlow)
+p <- system.file("extdata", "agronomy_rsm_nonorthogonal.csv", package="rsmFlow")
+dat <- read.csv(p)
+head(dat)
+```
+
+## 3. First-order versus second-order models
+
+### First order
+
+```{r}
+fo <- rsm_fit(
+  dat,
+  response="Yield",
+  factors=c("N","K","Irrigation"),
+  order=1
+)
+summary(fo)
+```
+
+A first-order model is appropriate for directional search when curvature is weak over the studied region.
+
+### Second order
+
+```{r}
+so <- rsm_fit(
+  dat,
+  response="Yield",
+  factors=c("N","K","Irrigation"),
+  order=2
+)
+summary(so)
+```
+
+A second-order model adds quadratic curvature and pairwise interactions.
+
+## 4. Hierarchy is deliberate
+
+If a quadratic term \(x_i^2\) is retained, the corresponding linear term \(x_i\) should generally remain. If an interaction \(x_i x_j\) is retained, the main effects should generally remain.
+
+This hierarchy makes the model interpretable under changes of origin and supports coherent surface geometry.
+
+`rsm_fit(order=2)` constructs the hierarchical second-order structure automatically.
+
+## 5. OLS, WLS, and robust coefficient estimation
+
+Ordinary least squares:
+
+```{r}
+fit_ols <- rsm_fit(dat, "Yield", c("N","K","Irrigation"), order=2, estimator="ols")
+```
+
+Power-weighted least squares:
+
+```{r}
+fit_wls <- rsm_fit(dat, "Yield", c("N","K","Irrigation"), order=2, estimator="wls_power")
+```
+
+Robust coefficient estimation:
+
+```{r}
+fit_rob <- rsm_fit(dat, "Yield", c("N","K","Irrigation"), order=2, estimator="robust")
+```
+
+### Interpretation
+
+Changing the estimator should solve a diagnosed problem, not serve as an automatic model-selection contest. Compare residual behavior, coefficient stability, and resulting decisions.
+
+## 6. Blocking
+
+When an experiment was blocked, encode that structure rather than treating the block effect as unexplained residual variation.
+
+```{r}
+# Example if a column named Block is present:
+# fit_block <- rsm_fit(
+#   dat_blocked,
+#   response="Yield",
+#   factors=c("N","K"),
+#   order=2,
+#   block="Block"
+# )
+```
+
+The exact interpretation depends on the design. `rsmFlow` currently treats the block as part of the fixed model structure in this classical workflow; it is not a general mixed-model engine.
+
+## 7. Diagnose before interpreting geometry
+
+```{r}
+d <- rsm_diagnostics(so)
+d
+```
+
+Typical quantities include:
+
+| Diagnostic | Interpretation |
+|---|---|
+| Residuals | unexplained response pattern |
+| Standardized residuals | scale-adjusted departures |
+| Leverage | unusual model-matrix positions |
+| Cook's distance | influence on the fitted model |
+| RMSE/MAE | descriptive fit error |
+| R² | fraction of variation represented in Gaussian polynomial fit |
+| Lack-of-fit result | model structure versus pure-error replication, when available |
+
+## 8. Residual-versus-fitted plot
+
+```{r}
+rsm_plot(so, type="residuals")
+```
+
+Look for:
+
+- curvature remaining in residuals;
+- changing spread;
+- groups or bands;
+- isolated influential observations.
+
+Residuals should not be treated as a decorative final figure. They can invalidate the interpretation of the fitted surface.
+
+## 9. Normal Q-Q plot
+
+```{r}
+rsm_plot(so, type="qq")
+```
+
+Moderate tail deviations can occur by chance in small experiments. Combine the plot with the scientific scale, replication, and sensitivity analyses rather than treating a normality test as a binary gate.
+
+## 10. Leverage and Cook's distance
+
+```{r}
+rsm_plot(so, type="leverage")
+rsm_plot(so, type="cooks")
+```
+
+High leverage is common at axial or extreme design points because those runs define curvature. A high-leverage point is not automatically an error.
+
+Investigate provenance before excluding any run.
+
+## 11. Lack of fit and pure error
+
+If identical factor combinations were replicated, pure error can be separated from model lack of fit.
+
+```{r}
+lof <- rsm_lack_of_fit(so)
+lof
+```
+
+### Interpretation
+
+A meaningful lack-of-fit signal means the current polynomial structure does not explain systematic variation beyond replicated experimental error.
+
+Possible responses include:
+
+- transform or change response family;
+- expand the model only with scientific justification;
+- fit a biologically motivated nonlinear model;
+- inspect a missing block/batch structure;
+- reconsider the experimental region.
+
+Do not respond by optimizing the inadequate surface more aggressively.
+
+## 12. Visualize the mean surface
+
+For a three-factor model, fix one factor and view two at a time.
+
+```{r}
+rsm_plot(
+  so,
+  type="contour",
+  x="N",
+  y="K",
+  at=list(Irrigation=median(dat$Irrigation))
+)
+```
+
+```{r}
+rsm_plot(
+  so,
+  type="surface",
+  x="N",
+  y="K",
+  at=list(Irrigation=median(dat$Irrigation)),
+  interactive=TRUE
+)
+```
+
+Every conditional plot should state the fixed values of omitted factors.
+
+## 13. Canonical analysis
+
+A second-order surface can be written as
+
+\[
+\hat y = \beta_0 + \mathbf{b}^\top\mathbf{x} + \mathbf{x}^\top\mathbf{B}\mathbf{x}.
+\]
+
+If \(\mathbf B\) is nonsingular, the stationary point is
+
+\[
+\mathbf{x}_s = -\frac{1}{2}\mathbf{B}^{-1}\mathbf b.
+\]
+
+Run:
+
+```{r}
+can <- rsm_canonical(so)
+can
+```
+
+Inspect:
+
+```{r}
+can$stationary_point
+can$eigenvalues
+can$nature
+```
+
+## 14. Classify the stationary point
+
+| Eigenvalue pattern | Geometry |
+|---|---|
+| all negative | local maximum |
+| all positive | local minimum |
+| mixed signs | saddle |
+| one or more near zero | ridge / nearly flat direction |
+
+This classification describes the mathematical surface around the stationary point. It does not guarantee that the point lies inside the experimental bounds.
+
+## 15. Plot canonical directions
+
+```{r}
+rsm_plot(so, type="canonical")
+```
+
+Canonical axes can reveal directions of strong and weak curvature that are hidden by the original factor axes.
+
+## 16. A synthetic maximum for teaching
+
+```{r}
+set.seed(410)
+N <- rep(seq(40,160,length.out=7), each=7)
+P <- rep(seq(20,100,length.out=7), times=7)
+Y <- 12 - 0.00025*(N-110)^2 - 0.00055*(P-62)^2 + rnorm(length(N),0,0.08)
+max_dat <- data.frame(N,P,Y)
+max_fit <- rsm_fit(max_dat,"Y",c("N","P"),order=2)
+rsm_canonical(max_fit)
+```
+
+Expected interpretation: both principal curvatures should be negative and the stationary point should be near the designed peak.
+
+## 17. A synthetic saddle for teaching
+
+```{r}
+set.seed(411)
+x1 <- runif(60,-1,1)
+x2 <- runif(60,-1,1)
+y <- 5 + 2*x1^2 - 1.5*x2^2 + rnorm(60,0,0.08)
+saddle_dat <- data.frame(x1,x2,y)
+saddle_fit <- rsm_fit(saddle_dat,"y",c("x1","x2"),order=2)
+rsm_canonical(saddle_fit)
+```
+
+A saddle is neither a maximum nor a minimum. Searching for “the optimum” without first understanding this geometry can be misleading.
+
+## 18. Steepest ascent
+
+A first-order model provides a gradient direction.
+
+```{r}
+fo2 <- rsm_fit(max_dat,"Y",c("N","P"),order=1)
+path_up <- rsm_steepest(
+  fo2,
+  direction="ascent",
+  step=0.10,
+  n_steps=12,
+  standardized=TRUE
+)
+path_up
+```
+
+### Interpretation
+
+Steepest ascent is a sequential-experiment tool. The usual logic is:
+
+1. fit a local first-order surface;
+2. move along the estimated ascent direction;
+3. conduct real runs along the path;
+4. stop when response no longer improves;
+5. center a new curvature experiment near the promising region.
+
+Predictions along the path do not replace real sequential runs.
+
+## 19. Steepest descent
+
+```{r}
+path_down <- rsm_steepest(
+  fo2,
+  direction="descent",
+  step=0.10,
+  n_steps=12
+)
+```
+
+Useful when the scientific objective is minimization, such as disease, contamination, energy use, or residual concentration.
+
+## 20. Ridge analysis
+
+When the stationary point is outside the experimental region or curvature is weak, explore best response on expanding radii around a reference center.
+
+```{r}
+ridge <- rsm_ridge(
+  so,
+  radii=seq(0.1,1.0,by=0.1),
+  goal="max",
+  n_starts=30,
+  seed=412
+)
+ridge
+```
+
+### Interpretation
+
+Ridge analysis separates two questions:
+
+- What is the local canonical geometry?
+- What is the best fitted response at increasing distance from the center?
+
+This is particularly useful for elongated or weakly curved surfaces.
+
+## 21. Profiles and conditional interpretation
+
+```{r}
+prof <- rsm_profile(
+  so,
+  factor="N",
+  at=list(
+    K=median(dat$K),
+    Irrigation=median(dat$Irrigation)
+  ),
+  n=100
+)
+head(prof)
+```
+
+```{r}
+rsm_plot(
+  so,
+  type="profile",
+  x="N",
+  at=list(K=median(dat$K), Irrigation=median(dat$Irrigation))
+)
+```
+
+A profile is conditional on the fixed values of all other factors. It should not be described as a marginal causal effect without additional design assumptions.
+
+## 22. Perturbation plot
+
+```{r}
+rsm_perturbation(so)
+rsm_plot(so, type="perturbation")
+```
+
+Perturbation curves compare local response sensitivity around a common reference point. They are not global variable-importance scores.
+
+## 23. Model comparison: FO versus SO
+
+Cross-validation can complement geometry and diagnostics.
+
+```{r}
+cv_fo <- rsm_cv(fo, folds=5, repeats=10, seed=413)
+cv_so <- rsm_cv(so, folds=5, repeats=10, seed=413)
+cv_fo
+cv_so
+```
+
+If the second-order model does not improve predictive performance and curvature is weak, a simpler first-order representation can remain scientifically preferable.
+
+## 24. Three interpretation scenarios
+
+### Scenario A: interior maximum
+
+Report stationary coordinates, negative eigenvalues, bounded confirmation, prediction precision, and uncertainty.
+
+### Scenario B: stationary point outside the region
+
+Do not extrapolate the mathematical maximum as an experimental recommendation. Continue with bounded optimization and possibly a new sequential design.
+
+### Scenario C: saddle or ridge
+
+Do not force a “maximum” narrative. Use ridge/search-path tools and reconsider the experimental region.
+
+## 25. Common mistakes
+
+1. Interpreting coefficients before checking hierarchy and design correlation.
+2. Treating a statistically significant quadratic term as proof of an interior optimum.
+3. Calling a saddle point an optimum.
+4. Optimizing a model with clear lack of fit.
+5. Removing axial runs simply because they have high leverage.
+6. Reporting a conditional 2D slice as if all other factors varied freely.
+7. Confusing canonical geometry with a constrained operational decision.
+
+## 26. Minimum reporting checklist
+
+- [ ] Model order and hierarchy reported.
+- [ ] Factor coding/natural scale stated.
+- [ ] Estimator identified.
+- [ ] Block term reported where used.
+- [ ] Residual diagnostics examined.
+- [ ] Lack of fit reported when pure-error replication exists.
+- [ ] Influential runs investigated rather than automatically deleted.
+- [ ] Stationary point coordinates reported.
+- [ ] Canonical eigenvalues/classification reported.
+- [ ] Whether stationary point lies inside the experimental region stated.
+- [ ] Conditional values reported for 2D slices of higher-dimensional models.
+- [ ] Extrapolation clearly separated from interpolation.
+
+## 27. Where to go next
+
+If Gaussian polynomial assumptions are inappropriate or biological saturation is central, continue to **GLM and Nonlinear Response Surfaces**. If model adequacy is acceptable and the next question is a decision, continue to **Optimization, Uncertainty, and Economics**.

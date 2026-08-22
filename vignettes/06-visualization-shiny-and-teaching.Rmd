@@ -1,0 +1,444 @@
+---
+title: "rsmFlow: Visualization, Shiny, and Teaching Workflows"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{rsmFlow: Visualization, Shiny, and Teaching Workflows}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+bibliography: references.bib
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(collapse=TRUE, comment="#>", fig.width=7, fig.height=5, dpi=120, eval=FALSE)
+```
+
+# Visualization, Shiny, and teaching workflows
+
+**Role in the vignette curriculum.** This vignette owns communication: static and interactive graphics, higher-dimensional views, the optional Shiny interface, GUI-to-code reproducibility, and teaching sequences. Statistical model details are intentionally referenced rather than repeated.
+
+## 1. Every plot should answer a question
+
+A response surface can be visualized in many ways, but each view emphasizes different evidence.
+
+| Plot | Best question |
+|---|---|
+| Design plot | Where were runs placed? |
+| Term-correlation plot | Which model terms are related? |
+| Prediction-variance map | Where are predictions weak? |
+| Contour | Where do fitted response levels occur? |
+| Heat map | How does response change over a 2D region? |
+| 3D surface | What is the overall fitted geometry? |
+| Profile | How does one factor change response conditionally? |
+| Perturbation | Which factor directions are locally influential? |
+| Slice | How does a 2D surface change as a third factor is fixed? |
+| FDS / VDG | How is precision distributed over the region? |
+| Optimum cloud | How uncertain are factor settings? |
+| Pareto plot | What trade-offs exist among responses? |
+
+## 2. Fit the standard agronomic example
+
+```{r}
+library(rsmFlow)
+p <- system.file("extdata","agronomy_rsm_nonorthogonal.csv",package="rsmFlow")
+dat <- read.csv(p)
+fit <- rsm_fit(dat,"Yield",c("N","K","Irrigation"),order=2)
+```
+
+## 3. Show the design first
+
+```{r}
+rsm_plot(fit,type="design")
+```
+
+Observed design points provide essential context for every fitted surface. A smooth prediction region can otherwise look more informative than the actual data support.
+
+## 4. Term correlation
+
+```{r}
+rsm_plot(fit,type="term_correlation")
+```
+
+Use this with the numerical audit rather than as a decorative heat map.
+
+## 5. Contour plot
+
+```{r}
+rsm_plot(
+  fit,
+  type="contour",
+  x="N",
+  y="K",
+  at=list(Irrigation=median(dat$Irrigation)),
+  show_points=TRUE
+)
+```
+
+Always report the fixed third-factor value in the caption.
+
+## 6. Heat map
+
+```{r}
+rsm_plot(
+  fit,
+  type="heatmap",
+  x="N",
+  y="K",
+  at=list(Irrigation=median(dat$Irrigation))
+)
+```
+
+Useful for communication to readers who find contour geometry unfamiliar.
+
+## 7. 3D response surface
+
+```{r}
+rsm_plot(
+  fit,
+  type="surface",
+  x="N",
+  y="K",
+  at=list(Irrigation=median(dat$Irrigation)),
+  interactive=FALSE
+)
+```
+
+Interactive Plotly version:
+
+```{r}
+rsm_plot(
+  fit,
+  type="surface",
+  x="N",
+  y="K",
+  at=list(Irrigation=median(dat$Irrigation)),
+  interactive=TRUE
+)
+```
+
+3D surfaces are excellent for exploration but can distort slope perception. Pair them with contours for precise interpretation.
+
+## 8. Prediction variance as a figure
+
+```{r}
+rsm_plot(fit,type="prediction_variance",x="N",y="K")
+```
+
+A publication showing an optimum can benefit from a companion precision map, especially for non-orthogonal or augmented designs.
+
+## 9. Residual diagnostic figures
+
+```{r}
+rsm_plot(fit,type="residuals")
+rsm_plot(fit,type="qq")
+rsm_plot(fit,type="leverage")
+rsm_plot(fit,type="cooks")
+```
+
+These belong before the optimization figure in the analytical logic, even if they appear in supplementary material in a manuscript.
+
+## 10. Profiles
+
+```{r}
+prof_N <- rsm_profile(
+  fit,
+  factor="N",
+  at=list(
+    K=median(dat$K),
+    Irrigation=median(dat$Irrigation)
+  )
+)
+head(prof_N)
+```
+
+```{r}
+rsm_plot(
+  fit,
+  type="profile",
+  x="N",
+  at=list(K=median(dat$K),Irrigation=median(dat$Irrigation))
+)
+```
+
+A profile is conditional. State the held-constant settings.
+
+## 11. Perturbation
+
+```{r}
+rsm_perturbation(fit)
+rsm_plot(fit,type="perturbation")
+```
+
+Use for local sensitivity around a common reference point. Do not call it a global importance ranking.
+
+## 12. Sliced surfaces for higher-dimensional RSM
+
+```{r}
+slices <- rsm_slices(
+  fit,
+  x="N",
+  y="K",
+  slice_factor="Irrigation",
+  values=quantile(dat$Irrigation,c(.25,.5,.75)),
+  n=50
+)
+slices
+```
+
+This is the correct visual grammar for a three-factor model: a sequence of conditional two-factor surfaces.
+
+## 13. Overlaid constraints
+
+For multiple responses:
+
+```{r}
+# rsm_overlaid_contour(
+#   fits=list(fit_yield,fit_quality,fit_disease),
+#   constraints=list(
+#     list(goal="max",low=12),
+#     list(goal="max",low=82),
+#     list(goal="min",high=12)
+#   ),
+#   x="N",y="Irrigation"
+# )
+```
+
+Show the feasible operating region rather than only the selected compromise point.
+
+## 14. Desirability surface
+
+```{r}
+# rsm_desirability_surface(
+#   fits=list(fit1,fit2),
+#   goals=c("max","target"),
+#   limits=list(
+#     list(low=10,high=14),
+#     list(low=80,target=83,high=85)
+#   )
+# )
+```
+
+## 15. Pareto figure
+
+```{r}
+# p <- rsm_pareto(list(fit1,fit2),c("max","min"),n=10000,seed=901)
+# rsm_plot_pareto(p,response_x="response1",response_y="response2")
+```
+
+A Pareto plot should highlight non-dominated solutions and label response directions clearly.
+
+## 16. Optimum uncertainty figure
+
+```{r}
+opt <- rsm_optimize(fit,goal="max",method="hybrid",seed=902)
+unc <- rsm_optimum_ci(fit,optimum=opt,B=999,seed=902)
+rsm_plot_optimum_uncertainty(unc,x="N",y="K")
+```
+
+The cloud communicates coordinate uncertainty more directly than three separate interval lines.
+
+## 17. FDS and VDG for design teaching
+
+```{r}
+rsm_plot(fit,type="fds")
+rsm_plot(fit,type="vdg")
+```
+
+These figures belong to design-quality teaching rather than to generic residual diagnostics.
+
+## 18. A publication figure sequence
+
+For a two-factor optimization paper, a coherent figure set can be:
+
+1. design geometry with observed runs;
+2. residual/diagnostic panel;
+3. fitted contour with bounded optimum;
+4. prediction-variance map;
+5. optimum uncertainty cloud or near-optimal region;
+6. biological-versus-economic comparison if costs matter.
+
+The sequence mirrors the evidence chain.
+
+# Part II. Shiny as an interactive teaching layer
+
+## 19. Launch the app
+
+```{r}
+run_rsm_app()
+```
+
+The Shiny interface is optional. The scientific library remains usable without it.
+
+## 20. The GUI is not a second statistical engine
+
+The design principle is:
+
+```text
+Shiny controls
+    ↓
+public rsmFlow functions
+    ↓
+standard result objects
+    ↓
+plots / tables / reports
+```
+
+This keeps script and GUI analyses aligned.
+
+## 21. GUI-to-code bridge: classical RSM
+
+GUI path:
+
+```text
+Import data
+→ choose response
+→ choose quantitative factors
+→ second-order model
+→ fit
+```
+
+Equivalent R:
+
+```{r}
+fit <- rsm_fit(
+  dat,
+  response="Yield",
+  factors=c("N","K","Irrigation"),
+  order=2
+)
+```
+
+## 22. GUI-to-code bridge: design audit
+
+Equivalent R:
+
+```{r}
+rsm_design_audit(fit)
+rsm_fds(fit)
+rsm_vdg(fit)
+```
+
+Students should learn to copy the conceptual sequence from the GUI into a reproducible script.
+
+## 23. GUI-to-code bridge: optimization
+
+Equivalent R:
+
+```{r}
+opt <- rsm_optimize(fit,goal="max",method="hybrid",seed=903)
+unc <- rsm_optimum_ci(fit,optimum=opt,B=999,seed=903)
+near <- rsm_near_optimal(fit,optimum=opt,tolerance=.05,seed=903)
+```
+
+## 24. GUI-to-code bridge: GLM
+
+```{r}
+# fit_glm <- rsm_glm_fit(
+#   count_data,"Count",c("Dose","Time"),family=poisson()
+# )
+# rsm_glm_diagnostics(fit_glm)
+# rsm_optimize(fit_glm,goal="min",scale="response")
+```
+
+## 25. GUI-to-code bridge: nonlinear model
+
+```{r}
+# fit_nl <- rsm_nonlinear_fit(
+#   data,"Yield",c("N","P"),
+#   model="mitscherlich2_product",
+#   start="ga",seed=904
+# )
+```
+
+## 26. Teaching sequence for beginners
+
+A useful laboratory class can follow:
+
+### Stage 1: inspect the runs
+
+Students identify response, factors, units, bounds, center points, and replication.
+
+### Stage 2: fit but do not optimize
+
+Students fit FO/SO models and inspect residuals.
+
+### Stage 3: understand geometry
+
+Students classify maximum/minimum/saddle/ridge examples.
+
+### Stage 4: bounded decision
+
+Students compare stationary and bounded optima.
+
+### Stage 5: uncertainty
+
+Students inspect an optimum cloud and near-optimal zone.
+
+### Stage 6: write the R script equivalent
+
+The GUI becomes a conceptual scaffold rather than a black box.
+
+## 27. Teaching sequence for advanced users
+
+1. Audit a deliberately non-orthogonal design.
+2. Compare prediction variance, FDS, and VDG.
+3. Compare Gaussian RSM with GLM/nonlinear alternatives.
+4. Freeze seeds and compare optimizers.
+5. Build a desirability compromise and Pareto front.
+6. Compare classical RSM with a GP/GAM surrogate.
+7. Propose a Bayesian-optimization run without fabricating its response.
+8. Produce a scientific report with explicit limitations.
+
+## 28. Use `rsm_explain()` as a teaching aid
+
+```{r}
+rsm_explain(fit)
+```
+
+Use explanatory output to support interpretation, not to replace statistical reasoning.
+
+## 29. Figure interpretation prompts for students
+
+For every contour plot ask:
+
+- Where are the observed points?
+- Which region is interpolated?
+- Is the apparent optimum inside the design?
+- Is the response flat in any direction?
+- How would prediction variance change the recommendation?
+
+For every uncertainty cloud ask:
+
+- Is uncertainty symmetric?
+- Is it truncated by bounds?
+- Would multiple settings be practically equivalent?
+
+For every Pareto plot ask:
+
+- Which responses conflict?
+- Which solutions are dominated?
+- What additional value judgment is required to choose one point?
+
+## 30. Communication principles
+
+1. Keep natural units on final axes whenever possible.
+2. Show observed points with fitted surfaces.
+3. State fixed factor values on slices.
+4. Distinguish response and link scales.
+5. Label boundary optima explicitly.
+6. Report uncertainty around decisions.
+7. Avoid decorative 3D figures when a contour communicates the result more precisely.
+8. Use color plus shape/line type when accessibility matters.
+
+## 31. Common mistakes
+
+1. Showing a surface without observed points.
+2. Omitting the fixed third-factor value.
+3. Using interactive graphics as the only reproducible record.
+4. Teaching the GUI without teaching the equivalent R function.
+5. Calling an optimum cloud a confidence ellipse without checking the underlying method.
+6. Using a Pareto plot without explaining dominance.
+7. Hiding diagnostic warnings because the final contour looks smooth.
+
+## 32. Where to go next
+
+Continue to **Validation, Reproducibility, and Method Selection** before treating a model or interface workflow as release-ready scientific software.

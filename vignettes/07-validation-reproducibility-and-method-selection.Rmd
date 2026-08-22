@@ -1,0 +1,514 @@
+---
+title: "rsmFlow: Validation, Reproducibility, and Method Selection"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{rsmFlow: Validation, Reproducibility, and Method Selection}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+bibliography: references.bib
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(collapse=TRUE, comment="#>", fig.width=7, fig.height=5, dpi=120, eval=FALSE)
+```
+
+# Validation, reproducibility, and method selection
+
+**Role in the vignette curriculum.** This final deep dive owns validation logic, model comparison, simulation design, frozen seeds, backend checks, reproducibility, state-of-the-art positioning, and release-quality evidence. It does not repeat detailed tutorials for individual models.
+
+## 1. Validation has several meanings
+
+A package can parse successfully and still be scientifically wrong. A model can fit successfully and still be inappropriate. A numerical method can return a solution and still be unstable.
+
+Separate at least five validation layers:
+
+1. **Software validity:** functions run and return correctly structured objects.
+2. **Numerical validity:** results agree with trusted calculations or known truths.
+3. **Statistical validity:** estimators/inference behave as intended under controlled scenarios.
+4. **Scientific validity:** model assumptions and decisions make sense for the experimental problem.
+5. **Documentation validity:** examples describe the actual implemented API and behavior.
+
+## 2. Current development-snapshot policy
+
+The vignette sources use `eval=FALSE` because the generation environment for this documentation reorganization does not certify a complete R runtime and all optional specialist backends.
+
+Therefore:
+
+- syntax and API references can be audited statically here;
+- runtime execution belongs to the local validation workflow;
+- no vignette result should be treated as runtime-certified merely because the Rmd file exists.
+
+This distinction should remain visible until `R CMD check --as-cran` and the scientific test battery pass in a complete environment.
+
+## 3. Start with the official smoke test
+
+From the package root:
+
+```{r}
+source("scripts/SMOKE_TEST.R")
+```
+
+The smoke test covers representative classical, design-audit, canonical, optimization, economic, GLM, nonlinear, and Tier-3 paths when optional dependencies are available.
+
+A smoke test is a breadth gate, not proof of numerical correctness.
+
+## 4. Run automated tests
+
+```{r}
+if (requireNamespace("testthat", quietly=TRUE)) {
+  testthat::test_dir("tests/testthat")
+}
+```
+
+The test suite should include both success paths and failure/guardrail paths.
+
+Examples of scientifically consequential guardrails:
+
+- mixture designs rejected because they are outside scope;
+- target optimization requires a target;
+- insufficient rank reported;
+- GLM family/scale rules enforced;
+- invalid nonlinear starts rejected;
+- failed bootstrap refits reported;
+- epsilon constraints checked;
+- optional backends fail informatively when absent.
+
+## 5. R CMD build and check
+
+Canonical release gates:
+
+```text
+R CMD build rsmFlow
+R CMD check --as-cran rsmFlow_<version>.tar.gz
+```
+
+A static source ZIP is not a substitute for the tarball produced by `R CMD build`.
+
+## 6. Freeze stochastic experiments
+
+Every simulation scenario should have:
+
+- a scenario identifier;
+- a fixed data-generating mechanism;
+- fixed factor region;
+- fixed model specification;
+- fixed seed sequence;
+- fixed number of replicates;
+- predefined metrics;
+- predefined failure rules.
+
+Do not change seeds or tolerances after observing inconvenient results without versioning the simulation protocol.
+
+## 7. Simulation battery structure
+
+The package includes `scripts/SIMULATION_BATTERY.R`. The current intended battery covers:
+
+| Scenario | Question |
+|---|---|
+| A | design geometry × non-orthogonality × noise |
+| B | interior, boundary, and external stationary points |
+| C | optimum interval coverage |
+| D | heteroscedasticity: OLS vs power-WLS |
+| E | block and lack-of-fit behavior |
+| F | scaling from 2 to multiple factors |
+| G | design augmentation under correlation |
+| H | conflicting multiresponse decisions |
+| I | biological vs economic optimum |
+| J | GLM Poisson/binomial/Gamma behavior |
+| K | nonlinear parameter recovery |
+| L | GA vs multistart initialization |
+| M | Tier-3 surrogate comparison |
+| N | generalized nonlinear heteroscedasticity |
+
+The scenario list should remain frozen for comparative reruns within a release cycle.
+
+## 8. Validate design audit numerically
+
+Use known model matrices where rank and condition are analytically or independently computable.
+
+```{r}
+set.seed(1001)
+d <- data.frame(
+  x1=runif(60,-1,1),
+  x2=runif(60,-1,1)
+)
+d$y <- 3 + d$x1 - .5*d$x2 + .8*d$x1^2 + rnorm(60,0,.05)
+fit <- rsm_fit(d,"y",c("x1","x2"),order=2)
+a <- rsm_design_audit(fit)
+a
+```
+
+Compare rank and condition diagnostics with independent linear-algebra calculations where appropriate.
+
+## 9. Validate canonical analysis with known surfaces
+
+### Known maximum
+
+```{r}
+set.seed(1002)
+dmax <- expand.grid(x1=seq(-1,1,length.out=9),x2=seq(-1,1,length.out=9))
+dmax$y <- 10 - 2*(dmax$x1-.2)^2 - 1.5*(dmax$x2+.1)^2 + rnorm(nrow(dmax),0,.02)
+fmax <- rsm_fit(dmax,"y",c("x1","x2"),order=2)
+rsm_canonical(fmax)
+```
+
+Expected: maximum near `(0.2, -0.1)` with negative eigenvalues.
+
+### Known saddle
+
+```{r}
+set.seed(1003)
+ds <- expand.grid(x1=seq(-1,1,length.out=9),x2=seq(-1,1,length.out=9))
+ds$y <- 5 + 2*ds$x1^2 - 1.5*ds$x2^2 + rnorm(nrow(ds),0,.02)
+fs <- rsm_fit(ds,"y",c("x1","x2"),order=2)
+rsm_canonical(fs)
+```
+
+Expected: mixed eigenvalue signs.
+
+## 10. Validate bounded optimization against known truth
+
+```{r}
+truth <- c(x1=.2,x2=-.1)
+ans <- rsm_optimize(fmax,goal="max",method="all",seed=1004)
+ans
+```
+
+Compare analytic/grid/local/global/hybrid solutions within a predefined tolerance.
+
+## 11. Validate boundary behavior
+
+Construct a surface whose unconstrained maximum is outside `[-1,1]^2`.
+
+```{r}
+set.seed(1005)
+db <- expand.grid(x1=seq(-1,1,length.out=9),x2=seq(-1,1,length.out=9))
+db$y <- 10 - (db$x1-1.5)^2 - (db$x2-.2)^2 + rnorm(nrow(db),0,.02)
+fb <- rsm_fit(db,"y",c("x1","x2"),order=2)
+rsm_canonical(fb)
+rsm_optimize(fb,goal="max",method="hybrid",seed=1005)
+```
+
+Expected: stationary point outside the region and bounded optimum on the `x1=1` edge.
+
+## 12. Optimum uncertainty coverage
+
+For repeated simulated datasets with known interior optimum:
+
+1. generate data;
+2. fit model;
+3. obtain optimum interval/region;
+4. record whether the true optimum is covered;
+5. summarize coverage across replicates.
+
+A nominal 95% procedure should be evaluated by empirical coverage, not one attractive interval.
+
+## 13. Heteroscedasticity
+
+Generate variance increasing with fitted mean and compare:
+
+```{r}
+# fit_ols <- rsm_fit(dat,"y",c("x1","x2"),estimator="ols")
+# fit_wls <- rsm_fit(dat,"y",c("x1","x2"),estimator="wls_power")
+```
+
+Compare coefficient bias, prediction error, interval behavior, and optimum stability.
+
+Do not evaluate WLS only by lower residual SSE.
+
+## 14. GLM simulation validation
+
+For Poisson, binomial, and Gamma scenarios, freeze true parameters and assess:
+
+- coefficient recovery;
+- response-scale prediction error;
+- dispersion behavior;
+- bounded optimum recovery;
+- uncertainty coverage;
+- failure rate.
+
+For quasi families, exclude likelihood AIC from methods that require a full likelihood.
+
+## 15. Nonlinear parameter recovery
+
+Use known Mitscherlich and Michaelis-Menten surfaces.
+
+Metrics:
+
+- convergence rate;
+- parameter bias;
+- RMSE;
+- Jacobian condition;
+- optimum bias;
+- failed refit frequency.
+
+A nonlinear model can predict well but estimate individual parameters poorly. Both dimensions matter.
+
+## 16. GA versus multistart
+
+Use identical parameter bounds and frozen datasets.
+
+Compare:
+
+| Metric | Why it matters |
+|---|---|
+| convergence frequency | practical reliability |
+| final objective | quality of final estimator start |
+| parameter recovery | scientific interpretation |
+| runtime | computational cost |
+| multiple minima | identifiability/search complexity |
+
+Do not compare GA to multistart using different allowed parameter regions.
+
+## 17. Tier-3 validation
+
+The surrogate benchmark should use held-out or cross-validated performance. In-sample RMSE is insufficient for a claim of predictive superiority.
+
+Recommended metrics:
+
+- repeated CV RMSE/MAE;
+- calibration of GP uncertainty where relevant;
+- optimum bias relative to known truth;
+- optimum variability across training samples;
+- sensitivity to tuning;
+- computational time.
+
+## 18. One-step Bayesian optimization validation
+
+Use synthetic functions with known global maxima. At each simulated iteration:
+
+1. fit GP to observed runs;
+2. propose candidate by Expected Improvement;
+3. evaluate the **known synthetic truth** at that candidate;
+4. append the true synthetic response;
+5. repeat.
+
+This is appropriate in simulation because the data-generating function is known. In a real experiment, step 3 must be a real measurement.
+
+## 19. Model comparison is multi-criterion
+
+```{r}
+rsm_compare_engines(model1,model2,model3)
+```
+
+Do not collapse all evidence to one number.
+
+For example:
+
+| Criterion | Classical RSM | Nonlinear | GP |
+|---|---|---|---|
+| interpretation | strong | biological parameters | weaker/global |
+| local geometry | explicit | model-specific | numerical |
+| uncertainty | standard/bootstrap | refit/asymptotic | predictive GP |
+| extrapolation | polynomial risk | biological form risk | usually weak |
+| optimization | straightforward | straightforward | numerical |
+| sequential design | limited | limited | strong with acquisition |
+
+## 20. Compare decisions, not only models
+
+```{r}
+rsm_compare_optima(opt1,opt2,opt3)
+```
+
+A model comparison is scientifically incomplete when two plausible engines produce materially different recommended settings.
+
+## 21. State-of-the-art positioning
+
+`rsmFlow` is designed to complement rather than replace established RSM packages.
+
+Relevant foundations include:
+
+- classical RSM implementation and teaching in `rsm` [@Lenth2009];
+- response-surface design principles [@BoxDraper1959];
+- design selection under variance inflation considerations [@ODriscoll2015];
+- confidence sets for optimal factor levels [@Wan2016];
+- multiple-response desirability [@DerringerSuich1980];
+- efficient global optimization and Expected Improvement [@JonesSchonlauWelch1998].
+
+The package's intended contribution is integration: design-aware diagnostics, imperfect designs, classical/GLM/nonlinear surfaces, optimum uncertainty, economics, multiresponse decisions, Tier-3 surrogates, visualization, and teaching in one workflow.
+
+Use bounded language. Do not claim that no other package can perform any individual component.
+
+## 22. Reproducibility record
+
+Every stochastic analysis should preserve:
+
+```text
+package version
+R version
+platform
+optional backend versions
+seed
+factor bounds
+optimizer settings
+bootstrap B
+candidate grids
+model formula/family
+```
+
+Capture:
+
+```{r}
+sessionInfo()
+```
+
+For package development also preserve `DESCRIPTION`, `NAMESPACE`, test logs, and `00check.log`.
+
+## 23. Dependency-aware validation
+
+Optional packages currently used by specialist modules include examples such as:
+
+```text
+rsm
+GA
+MASS
+minpack.lm
+nlme
+mgcv
+DiceKriging
+ranger
+nnet
+mco
+plotly
+ggplot2
+OptimaRegion
+vdg
+AlgDesign
+```
+
+Not every suggested package is required for the core workflow. Test each optional backend explicitly if release documentation claims support for it.
+
+## 24. Shiny validation
+
+The optional Shiny interface should be tested against the same API:
+
+1. import data;
+2. fit classical model;
+3. compare output with direct `rsm_fit()`;
+4. run diagnostics;
+5. optimize;
+6. compare coordinates with direct `rsm_optimize()`;
+7. export/report if enabled;
+8. verify informative errors when optional packages are absent.
+
+The GUI should never silently change the statistical method.
+
+## 25. Documentation validation
+
+Every exported function should have:
+
+- an Rd page;
+- valid argument documentation;
+- realistic examples;
+- consistent names across vignettes;
+- no stale function calls.
+
+The long vignettes should be statically audited for exported symbols before runtime rendering.
+
+## 26. Local release sequence
+
+Recommended order:
+
+```text
+parse R files
+→ install dependencies
+→ source smoke test
+→ run testthat
+→ run examples
+→ render vignettes
+→ run simulation battery
+→ inspect numerical results
+→ launch Shiny
+→ R CMD build
+→ R CMD check --as-cran
+→ clean-library install
+```
+
+Do not report full validation before the relevant gates have actually run.
+
+## 27. Failure classification
+
+### Infrastructure failure
+
+Examples: R not found, compiler unavailable, system library missing.
+
+### Packaging failure
+
+Examples: malformed DESCRIPTION, missing export, broken Rd, missing file.
+
+### Runtime failure
+
+Examples: function error, wrong class, backend API incompatibility.
+
+### Numerical failure
+
+Examples: optimizer converges to wrong known solution, unstable predictions, wrong Hessian sign.
+
+### Methodological failure
+
+Examples: interval undercoverage, design criterion not matching its documented definition, biased nonlinear parameter recovery.
+
+The remedy depends on the class of failure.
+
+## 28. Three model-selection case studies
+
+### Case A: Gaussian yield data, adequate SO model
+
+Prefer classical RSM unless an alternative meaningfully improves prediction or decision stability.
+
+### Case B: overdispersed pest counts
+
+Compare Poisson and Negative Binomial using dispersion, diagnostics, prediction, and response-scale optimum.
+
+### Case C: saturating nutrient response
+
+Compare quadratic and Mitscherlich models using diagnostics, biological parameter plausibility, cross-validation, and optimum location.
+
+## 29. A minimum evidence table for a manuscript
+
+| Domain | Evidence to report |
+|---|---|
+| Design | region, replication, audit/precision |
+| Model | family/equation/order and hierarchy |
+| Diagnostics | residual/dispersion/identifiability |
+| Geometry | canonical class where relevant |
+| Decision | bounded optimum and boundary status |
+| Uncertainty | method, B, intervals/region |
+| Alternatives | sensitivity/model comparison |
+| Economics/multiresponse | assumptions/preferences |
+| Reproducibility | version, seed, backend |
+
+## 30. Common validation mistakes
+
+1. Treating package installation as scientific validation.
+2. Changing simulation seeds after seeing poor performance.
+3. Reporting only successful bootstrap replicates without failures.
+4. Ranking models by one information criterion.
+5. Using in-sample Tier-3 error as predictive evidence.
+6. Claiming exact I-optimal or confidence-region behavior without backend/numerical verification.
+7. Ignoring version-specific optional backend APIs.
+8. Calling static documentation checks runtime validation.
+9. Assuming Shiny output is correct because the interface opens.
+
+## 31. Final release checklist for the vignette ecosystem
+
+- [ ] Eight final Rmd vignettes present.
+- [ ] Old redundant short Rmd files removed from `vignettes/`.
+- [ ] Shared `references.bib` retained.
+- [ ] `VIGNETTE_ORGANIZATION.md` present.
+- [ ] Every public function assigned to a primary vignette owner.
+- [ ] No unresolved exported-symbol references.
+- [ ] No missing citation keys.
+- [ ] Code fences balanced.
+- [ ] Runtime examples executed locally before release.
+- [ ] `R CMD check --as-cran` passed before distribution claims.
+
+## 32. Closing perspective
+
+The purpose of validation is not to accumulate check marks. It is to establish that the sequence
+
+**design -> model -> diagnosis -> optimization -> uncertainty -> decision**
+
+behaves correctly under conditions where the truth or expected behavior is known, and remains transparent when the data are imperfect.
+
+That evidence is what allows `rsmFlow` to function simultaneously as a teaching package and an advanced scientific workflow.
