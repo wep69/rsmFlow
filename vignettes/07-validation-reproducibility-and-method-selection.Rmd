@@ -9,7 +9,7 @@ bibliography: references.bib
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(collapse=TRUE, comment="#>", fig.width=7, fig.height=5, dpi=120, eval=FALSE)
+knitr::opts_chunk$set(collapse=TRUE, comment="#>", fig.width=7, fig.height=5, dpi=120, eval=TRUE)
 ```
 
 # Validation, reproducibility, and method selection
@@ -30,7 +30,7 @@ Separate at least five validation layers:
 
 ## 2. Current development-snapshot policy
 
-The vignette sources use `eval=FALSE` because the generation environment for this documentation reorganization does not certify a complete R runtime and all optional specialist backends.
+The vignette sources use `eval=TRUE` because the generation environment for this documentation reorganization does not certify a complete R runtime and all optional specialist backends.
 
 Therefore:
 
@@ -45,7 +45,13 @@ This distinction should remain visible until `R CMD check --as-cran` and the sci
 From the package root:
 
 ```{r}
-source("scripts/SMOKE_TEST.R")
+smoke_script <- system.file("SMOKE_TEST.R", package = "rsmFlow")
+# If installed from source tree, fall back to scripts/
+if (!nzchar(smoke_script)) {
+  pkg_root <- find.package("rsmFlow")
+  smoke_script <- file.path(pkg_root, "scripts", "SMOKE_TEST.R")
+}
+if (file.exists(smoke_script)) source(smoke_script) else cat("SMOKE_TEST.R not found — skip\n")
 ```
 
 The smoke test covers representative classical, design-audit, canonical, optimization, economic, GLM, nonlinear, and Tier-3 paths when optional dependencies are available.
@@ -56,7 +62,8 @@ A smoke test is a breadth gate, not proof of numerical correctness.
 
 ```{r}
 if (requireNamespace("testthat", quietly=TRUE)) {
-  testthat::test_dir("tests/testthat")
+  test_dir <- system.file("tests", "testthat", package = "rsmFlow")
+  if (nzchar(test_dir)) testthat::test_dir(test_dir) else cat("tests not found — skip\n")
 }
 ```
 
@@ -287,7 +294,7 @@ This is appropriate in simulation because the data-generating function is known.
 
 ## 19. Model comparison is multi-criterion
 
-```{r}
+```{r, eval=FALSE}
 rsm_compare_engines(model1,model2,model3)
 ```
 
@@ -306,7 +313,7 @@ For example:
 
 ## 20. Compare decisions, not only models
 
-```{r}
+```{r, eval=FALSE}
 rsm_compare_optima(opt1,opt2,opt3)
 ```
 

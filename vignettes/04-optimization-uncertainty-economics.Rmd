@@ -9,7 +9,7 @@ bibliography: references.bib
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(collapse=TRUE, comment="#>", fig.width=7, fig.height=5, dpi=120, eval=FALSE)
+knitr::opts_chunk$set(collapse=TRUE, comment="#>", fig.width=7, fig.height=5, dpi=120, eval=TRUE)
 ```
 
 # Optimization, optimum uncertainty, and economics
@@ -70,9 +70,8 @@ If the bounded optimum lies on a factor limit, report that explicitly. A boundar
 
 ```{r}
 b <- list(
-  N=range(dat$N),
-  K=range(dat$K),
-  Irrigation=range(dat$Irrigation)
+  lower = c(N = min(dat$N), K = min(dat$K), Irrigation = min(dat$Irrigation)),
+  upper = c(N = max(dat$N), K = max(dat$K), Irrigation = max(dat$Irrigation))
 )
 
 opt_b <- rsm_optimize(

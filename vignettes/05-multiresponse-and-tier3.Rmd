@@ -9,7 +9,7 @@ bibliography: references.bib
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(collapse=TRUE, comment="#>", fig.width=7, fig.height=5, dpi=120, eval=FALSE)
+knitr::opts_chunk$set(collapse=TRUE, comment="#>", fig.width=7, fig.height=5, dpi=120, eval=TRUE)
 ```
 
 # Multiresponse optimization and Tier-3 surrogates
@@ -121,7 +121,7 @@ Desirability is a decision transformation, not a probability and not an inferent
 
 ## 4. Overall desirability
 
-```{r}
+```{r, eval=FALSE}
 limits <- list(
   list(low=10, high=14),
   list(low=80, target=83, high=85),
@@ -146,7 +146,7 @@ The solution is conditional on the desirability specification. Report the limits
 
 ## 5. Visualize the desirability surface
 
-```{r}
+```{r, eval=FALSE}
 dsurf <- rsm_desirability_surface(
   fits=list(fit_y,fit_q,fit_d),
   goals=c("max","target","min"),
@@ -163,7 +163,7 @@ The surface can reveal whether the compromise is sharp or whether a broad desira
 
 ## 6. Weighted compromise
 
-```{r}
+```{r, eval=FALSE}
 weighted <- rsm_multiopt(
   fits=list(fit_y,fit_q,fit_d),
   goals=c("max","max","min"),
@@ -180,7 +180,7 @@ Weights encode analyst or stakeholder priorities. Sensitivity analysis is essent
 
 ## 7. Distance-to-target
 
-```{r}
+```{r, eval=FALSE}
 distance <- rsm_multiopt(
   fits=list(fit_y,fit_q),
   goals=c("target","target"),
@@ -201,7 +201,7 @@ Useful when several responses have explicit engineering or quality targets.
 
 Suppose yield is the primary objective and disease must stay below a hard limit.
 
-```{r}
+```{r, eval=FALSE}
 eps <- rsm_multiopt(
   fits=list(fit_y,fit_d),
   goals=c("max","min"),
@@ -221,7 +221,7 @@ Epsilon constraints are often preferable when one response represents a mandator
 
 ## 9. Pareto front by sampling
 
-```{r}
+```{r, eval=FALSE}
 pareto_sample <- rsm_pareto(
   fits=list(fit_y,fit_d),
   goals=c("max","min"),
@@ -234,7 +234,7 @@ head(pareto_sample)
 
 Plot:
 
-```{r}
+```{r, eval=FALSE}
 rsm_plot_pareto(
   pareto_sample,
   response_x="response1",
@@ -250,7 +250,7 @@ A Pareto front presents trade-offs; it does not choose a final policy for the an
 
 ## 10. Optional NSGA-II
 
-```{r}
+```{r, eval=FALSE}
 if (requireNamespace("mco", quietly=TRUE)) {
   pareto_nsga <- rsm_pareto(
     fits=list(fit_y,fit_d),
@@ -422,7 +422,7 @@ For Tier-3 engines, use backend-aware validation and `rsm_compare_engines()` sum
 
 ## 22. Compare engines without automatic ranking
 
-```{r}
+```{r, eval=FALSE}
 models <- list(classical=classical)
 if (exists("gam_fit")) models$gam <- gam_fit
 if (exists("gp_fit")) models$gp <- gp_fit

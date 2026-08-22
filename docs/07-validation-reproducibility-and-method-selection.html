@@ -1,0 +1,1165 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+
+
+<title>rsmFlow: Validation, Reproducibility, and Method Selection</title>
+
+<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
+// be compatible with the behavior of Pandoc < 2.8).
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+
+<style type="text/css">
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+div.column{display: inline-block; vertical-align: top; width: 50%;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+</style>
+
+
+
+<style type="text/css">
+code {
+white-space: pre;
+}
+.sourceCode {
+overflow: visible;
+}
+</style>
+<style type="text/css" data-origin="pandoc">
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    var j = 0;
+    while (j < rules.length) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+<style type="text/css">
+
+div.csl-bib-body { }
+div.csl-entry {
+clear: both;
+}
+.hanging div.csl-entry {
+margin-left:2em;
+text-indent:-2em;
+}
+div.csl-left-margin {
+min-width:2em;
+float:left;
+}
+div.csl-right-inline {
+margin-left:2em;
+padding-left:1em;
+}
+div.csl-indent {
+margin-left: 2em;
+}
+</style>
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">rsmFlow: Validation, Reproducibility, and
+Method Selection</h1>
+
+
+
+<div id="validation-reproducibility-and-method-selection" class="section level1">
+<h1>Validation, reproducibility, and method selection</h1>
+<p><strong>Role in the vignette curriculum.</strong> This final deep
+dive owns validation logic, model comparison, simulation design, frozen
+seeds, backend checks, reproducibility, state-of-the-art positioning,
+and release-quality evidence. It does not repeat detailed tutorials for
+individual models.</p>
+<div id="validation-has-several-meanings" class="section level2">
+<h2>1. Validation has several meanings</h2>
+<p>A package can parse successfully and still be scientifically wrong. A
+model can fit successfully and still be inappropriate. A numerical
+method can return a solution and still be unstable.</p>
+<p>Separate at least five validation layers:</p>
+<ol style="list-style-type: decimal">
+<li><strong>Software validity:</strong> functions run and return
+correctly structured objects.</li>
+<li><strong>Numerical validity:</strong> results agree with trusted
+calculations or known truths.</li>
+<li><strong>Statistical validity:</strong> estimators/inference behave
+as intended under controlled scenarios.</li>
+<li><strong>Scientific validity:</strong> model assumptions and
+decisions make sense for the experimental problem.</li>
+<li><strong>Documentation validity:</strong> examples describe the
+actual implemented API and behavior.</li>
+</ol>
+</div>
+<div id="current-development-snapshot-policy" class="section level2">
+<h2>2. Current development-snapshot policy</h2>
+<p>The vignette sources use <code>eval=TRUE</code> because the
+generation environment for this documentation reorganization does not
+certify a complete R runtime and all optional specialist backends.</p>
+<p>Therefore:</p>
+<ul>
+<li>syntax and API references can be audited statically here;</li>
+<li>runtime execution belongs to the local validation workflow;</li>
+<li>no vignette result should be treated as runtime-certified merely
+because the Rmd file exists.</li>
+</ul>
+<p>This distinction should remain visible until
+<code>R CMD check --as-cran</code> and the scientific test battery pass
+in a complete environment.</p>
+</div>
+<div id="start-with-the-official-smoke-test" class="section level2">
+<h2>3. Start with the official smoke test</h2>
+<p>From the package root:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a>smoke_script <span class="ot">&lt;-</span> <span class="fu">system.file</span>(<span class="st">&quot;SMOKE_TEST.R&quot;</span>, <span class="at">package =</span> <span class="st">&quot;rsmFlow&quot;</span>)</span>
+<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a><span class="co"># If installed from source tree, fall back to scripts/</span></span>
+<span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a><span class="cf">if</span> (<span class="sc">!</span><span class="fu">nzchar</span>(smoke_script)) {</span>
+<span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a>  pkg_root <span class="ot">&lt;-</span> <span class="fu">find.package</span>(<span class="st">&quot;rsmFlow&quot;</span>)</span>
+<span id="cb1-5"><a href="#cb1-5" tabindex="-1"></a>  smoke_script <span class="ot">&lt;-</span> <span class="fu">file.path</span>(pkg_root, <span class="st">&quot;scripts&quot;</span>, <span class="st">&quot;SMOKE_TEST.R&quot;</span>)</span>
+<span id="cb1-6"><a href="#cb1-6" tabindex="-1"></a>}</span>
+<span id="cb1-7"><a href="#cb1-7" tabindex="-1"></a><span class="cf">if</span> (<span class="fu">file.exists</span>(smoke_script)) <span class="fu">source</span>(smoke_script) <span class="cf">else</span> <span class="fu">cat</span>(<span class="st">&quot;SMOKE_TEST.R not found — skip</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
+<span id="cb1-8"><a href="#cb1-8" tabindex="-1"></a><span class="co">#&gt; SMOKE_TEST.R not found — skip</span></span></code></pre></div>
+<p>The smoke test covers representative classical, design-audit,
+canonical, optimization, economic, GLM, nonlinear, and Tier-3 paths when
+optional dependencies are available.</p>
+<p>A smoke test is a breadth gate, not proof of numerical
+correctness.</p>
+</div>
+<div id="run-automated-tests" class="section level2">
+<h2>4. Run automated tests</h2>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="cf">if</span> (<span class="fu">requireNamespace</span>(<span class="st">&quot;testthat&quot;</span>, <span class="at">quietly=</span><span class="cn">TRUE</span>)) {</span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a>  test_dir <span class="ot">&lt;-</span> <span class="fu">system.file</span>(<span class="st">&quot;tests&quot;</span>, <span class="st">&quot;testthat&quot;</span>, <span class="at">package =</span> <span class="st">&quot;rsmFlow&quot;</span>)</span>
+<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a>  <span class="cf">if</span> (<span class="fu">nzchar</span>(test_dir)) testthat<span class="sc">::</span><span class="fu">test_dir</span>(test_dir) <span class="cf">else</span> <span class="fu">cat</span>(<span class="st">&quot;tests not found — skip</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
+<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a>}</span>
+<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a><span class="co">#&gt; tests not found — skip</span></span></code></pre></div>
+<p>The test suite should include both success paths and
+failure/guardrail paths.</p>
+<p>Examples of scientifically consequential guardrails:</p>
+<ul>
+<li>mixture designs rejected because they are outside scope;</li>
+<li>target optimization requires a target;</li>
+<li>insufficient rank reported;</li>
+<li>GLM family/scale rules enforced;</li>
+<li>invalid nonlinear starts rejected;</li>
+<li>failed bootstrap refits reported;</li>
+<li>epsilon constraints checked;</li>
+<li>optional backends fail informatively when absent.</li>
+</ul>
+</div>
+<div id="r-cmd-build-and-check" class="section level2">
+<h2>5. R CMD build and check</h2>
+<p>Canonical release gates:</p>
+<pre class="text"><code>R CMD build rsmFlow
+R CMD check --as-cran rsmFlow_&lt;version&gt;.tar.gz</code></pre>
+<p>A static source ZIP is not a substitute for the tarball produced by
+<code>R CMD build</code>.</p>
+</div>
+<div id="freeze-stochastic-experiments" class="section level2">
+<h2>6. Freeze stochastic experiments</h2>
+<p>Every simulation scenario should have:</p>
+<ul>
+<li>a scenario identifier;</li>
+<li>a fixed data-generating mechanism;</li>
+<li>fixed factor region;</li>
+<li>fixed model specification;</li>
+<li>fixed seed sequence;</li>
+<li>fixed number of replicates;</li>
+<li>predefined metrics;</li>
+<li>predefined failure rules.</li>
+</ul>
+<p>Do not change seeds or tolerances after observing inconvenient
+results without versioning the simulation protocol.</p>
+</div>
+<div id="simulation-battery-structure" class="section level2">
+<h2>7. Simulation battery structure</h2>
+<p>The package includes <code>scripts/SIMULATION_BATTERY.R</code>. The
+current intended battery covers:</p>
+<table>
+<thead>
+<tr class="header">
+<th>Scenario</th>
+<th>Question</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>A</td>
+<td>design geometry × non-orthogonality × noise</td>
+</tr>
+<tr class="even">
+<td>B</td>
+<td>interior, boundary, and external stationary points</td>
+</tr>
+<tr class="odd">
+<td>C</td>
+<td>optimum interval coverage</td>
+</tr>
+<tr class="even">
+<td>D</td>
+<td>heteroscedasticity: OLS vs power-WLS</td>
+</tr>
+<tr class="odd">
+<td>E</td>
+<td>block and lack-of-fit behavior</td>
+</tr>
+<tr class="even">
+<td>F</td>
+<td>scaling from 2 to multiple factors</td>
+</tr>
+<tr class="odd">
+<td>G</td>
+<td>design augmentation under correlation</td>
+</tr>
+<tr class="even">
+<td>H</td>
+<td>conflicting multiresponse decisions</td>
+</tr>
+<tr class="odd">
+<td>I</td>
+<td>biological vs economic optimum</td>
+</tr>
+<tr class="even">
+<td>J</td>
+<td>GLM Poisson/binomial/Gamma behavior</td>
+</tr>
+<tr class="odd">
+<td>K</td>
+<td>nonlinear parameter recovery</td>
+</tr>
+<tr class="even">
+<td>L</td>
+<td>GA vs multistart initialization</td>
+</tr>
+<tr class="odd">
+<td>M</td>
+<td>Tier-3 surrogate comparison</td>
+</tr>
+<tr class="even">
+<td>N</td>
+<td>generalized nonlinear heteroscedasticity</td>
+</tr>
+</tbody>
+</table>
+<p>The scenario list should remain frozen for comparative reruns within
+a release cycle.</p>
+</div>
+<div id="validate-design-audit-numerically" class="section level2">
+<h2>8. Validate design audit numerically</h2>
+<p>Use known model matrices where rank and condition are analytically or
+independently computable.</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">1001</span>)</span>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a>d <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a>  <span class="at">x1=</span><span class="fu">runif</span>(<span class="dv">60</span>,<span class="sc">-</span><span class="dv">1</span>,<span class="dv">1</span>),</span>
+<span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a>  <span class="at">x2=</span><span class="fu">runif</span>(<span class="dv">60</span>,<span class="sc">-</span><span class="dv">1</span>,<span class="dv">1</span>)</span>
+<span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a>)</span>
+<span id="cb4-6"><a href="#cb4-6" tabindex="-1"></a>d<span class="sc">$</span>y <span class="ot">&lt;-</span> <span class="dv">3</span> <span class="sc">+</span> d<span class="sc">$</span>x1 <span class="sc">-</span> .<span class="dv">5</span><span class="sc">*</span>d<span class="sc">$</span>x2 <span class="sc">+</span> .<span class="dv">8</span><span class="sc">*</span>d<span class="sc">$</span>x1<span class="sc">^</span><span class="dv">2</span> <span class="sc">+</span> <span class="fu">rnorm</span>(<span class="dv">60</span>,<span class="dv">0</span>,.<span class="dv">05</span>)</span>
+<span id="cb4-7"><a href="#cb4-7" tabindex="-1"></a>fit <span class="ot">&lt;-</span> <span class="fu">rsm_fit</span>(d,<span class="st">&quot;y&quot;</span>,<span class="fu">c</span>(<span class="st">&quot;x1&quot;</span>,<span class="st">&quot;x2&quot;</span>),<span class="at">order=</span><span class="dv">2</span>)</span>
+<span id="cb4-8"><a href="#cb4-8" tabindex="-1"></a>a <span class="ot">&lt;-</span> <span class="fu">rsm_design_audit</span>(fit)</span>
+<span id="cb4-9"><a href="#cb4-9" tabindex="-1"></a>a</span>
+<span id="cb4-10"><a href="#cb4-10" tabindex="-1"></a><span class="co">#&gt; Design status: usable </span></span>
+<span id="cb4-11"><a href="#cb4-11" tabindex="-1"></a><span class="co">#&gt; Rank: 6 / 6  | condition number (scaled/raw): 1.4394 / 3.2507 </span></span>
+<span id="cb4-12"><a href="#cb4-12" tabindex="-1"></a><span class="co">#&gt; Maximum absolute model-term correlation: 0.16695</span></span></code></pre></div>
+<p>Compare rank and condition diagnostics with independent
+linear-algebra calculations where appropriate.</p>
+</div>
+<div id="validate-canonical-analysis-with-known-surfaces" class="section level2">
+<h2>9. Validate canonical analysis with known surfaces</h2>
+<div id="known-maximum" class="section level3">
+<h3>Known maximum</h3>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">1002</span>)</span>
+<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a>dmax <span class="ot">&lt;-</span> <span class="fu">expand.grid</span>(<span class="at">x1=</span><span class="fu">seq</span>(<span class="sc">-</span><span class="dv">1</span>,<span class="dv">1</span>,<span class="at">length.out=</span><span class="dv">9</span>),<span class="at">x2=</span><span class="fu">seq</span>(<span class="sc">-</span><span class="dv">1</span>,<span class="dv">1</span>,<span class="at">length.out=</span><span class="dv">9</span>))</span>
+<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a>dmax<span class="sc">$</span>y <span class="ot">&lt;-</span> <span class="dv">10</span> <span class="sc">-</span> <span class="dv">2</span><span class="sc">*</span>(dmax<span class="sc">$</span>x1<span class="fl">-.2</span>)<span class="sc">^</span><span class="dv">2</span> <span class="sc">-</span> <span class="fl">1.5</span><span class="sc">*</span>(dmax<span class="sc">$</span>x2<span class="fl">+.1</span>)<span class="sc">^</span><span class="dv">2</span> <span class="sc">+</span> <span class="fu">rnorm</span>(<span class="fu">nrow</span>(dmax),<span class="dv">0</span>,.<span class="dv">02</span>)</span>
+<span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a>fmax <span class="ot">&lt;-</span> <span class="fu">rsm_fit</span>(dmax,<span class="st">&quot;y&quot;</span>,<span class="fu">c</span>(<span class="st">&quot;x1&quot;</span>,<span class="st">&quot;x2&quot;</span>),<span class="at">order=</span><span class="dv">2</span>)</span>
+<span id="cb5-5"><a href="#cb5-5" tabindex="-1"></a><span class="fu">rsm_canonical</span>(fmax)</span>
+<span id="cb5-6"><a href="#cb5-6" tabindex="-1"></a><span class="co">#&gt; Canonical analysis</span></span>
+<span id="cb5-7"><a href="#cb5-7" tabindex="-1"></a><span class="co">#&gt; Nature: maximum </span></span>
+<span id="cb5-8"><a href="#cb5-8" tabindex="-1"></a><span class="co">#&gt; Stationary point:</span></span>
+<span id="cb5-9"><a href="#cb5-9" tabindex="-1"></a><span class="co">#&gt;          x1          x2 </span></span>
+<span id="cb5-10"><a href="#cb5-10" tabindex="-1"></a><span class="co">#&gt;  0.19906657 -0.09988499 </span></span>
+<span id="cb5-11"><a href="#cb5-11" tabindex="-1"></a><span class="co">#&gt; Predicted response: 10.00034 </span></span>
+<span id="cb5-12"><a href="#cb5-12" tabindex="-1"></a><span class="co">#&gt; Inside region: TRUE</span></span></code></pre></div>
+<p>Expected: maximum near <code>(0.2, -0.1)</code> with negative
+eigenvalues.</p>
+</div>
+<div id="known-saddle" class="section level3">
+<h3>Known saddle</h3>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">1003</span>)</span>
+<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a>ds <span class="ot">&lt;-</span> <span class="fu">expand.grid</span>(<span class="at">x1=</span><span class="fu">seq</span>(<span class="sc">-</span><span class="dv">1</span>,<span class="dv">1</span>,<span class="at">length.out=</span><span class="dv">9</span>),<span class="at">x2=</span><span class="fu">seq</span>(<span class="sc">-</span><span class="dv">1</span>,<span class="dv">1</span>,<span class="at">length.out=</span><span class="dv">9</span>))</span>
+<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a>ds<span class="sc">$</span>y <span class="ot">&lt;-</span> <span class="dv">5</span> <span class="sc">+</span> <span class="dv">2</span><span class="sc">*</span>ds<span class="sc">$</span>x1<span class="sc">^</span><span class="dv">2</span> <span class="sc">-</span> <span class="fl">1.5</span><span class="sc">*</span>ds<span class="sc">$</span>x2<span class="sc">^</span><span class="dv">2</span> <span class="sc">+</span> <span class="fu">rnorm</span>(<span class="fu">nrow</span>(ds),<span class="dv">0</span>,.<span class="dv">02</span>)</span>
+<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a>fs <span class="ot">&lt;-</span> <span class="fu">rsm_fit</span>(ds,<span class="st">&quot;y&quot;</span>,<span class="fu">c</span>(<span class="st">&quot;x1&quot;</span>,<span class="st">&quot;x2&quot;</span>),<span class="at">order=</span><span class="dv">2</span>)</span>
+<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a><span class="fu">rsm_canonical</span>(fs)</span>
+<span id="cb6-6"><a href="#cb6-6" tabindex="-1"></a><span class="co">#&gt; Canonical analysis</span></span>
+<span id="cb6-7"><a href="#cb6-7" tabindex="-1"></a><span class="co">#&gt; Nature: saddle </span></span>
+<span id="cb6-8"><a href="#cb6-8" tabindex="-1"></a><span class="co">#&gt; Stationary point:</span></span>
+<span id="cb6-9"><a href="#cb6-9" tabindex="-1"></a><span class="co">#&gt;            x1            x2 </span></span>
+<span id="cb6-10"><a href="#cb6-10" tabindex="-1"></a><span class="co">#&gt;  0.0007221338 -0.0008188929 </span></span>
+<span id="cb6-11"><a href="#cb6-11" tabindex="-1"></a><span class="co">#&gt; Predicted response: 4.997484 </span></span>
+<span id="cb6-12"><a href="#cb6-12" tabindex="-1"></a><span class="co">#&gt; Inside region: TRUE </span></span>
+<span id="cb6-13"><a href="#cb6-13" tabindex="-1"></a><span class="co">#&gt; Warning: The stationary point is a saddle and must not be reported as an optimum.</span></span></code></pre></div>
+<p>Expected: mixed eigenvalue signs.</p>
+</div>
+</div>
+<div id="validate-bounded-optimization-against-known-truth" class="section level2">
+<h2>10. Validate bounded optimization against known truth</h2>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a>truth <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="at">x1=</span>.<span class="dv">2</span>,<span class="at">x2=</span><span class="sc">-</span>.<span class="dv">1</span>)</span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a>ans <span class="ot">&lt;-</span> <span class="fu">rsm_optimize</span>(fmax,<span class="at">goal=</span><span class="st">&quot;max&quot;</span>,<span class="at">method=</span><span class="st">&quot;all&quot;</span>,<span class="at">seed=</span><span class="dv">1004</span>)</span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a>ans</span>
+<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a><span class="co">#&gt; rsmFlow optimum</span></span>
+<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a><span class="co">#&gt; Goal: max  | method: analytic_stationary </span></span>
+<span id="cb7-6"><a href="#cb7-6" tabindex="-1"></a><span class="co">#&gt;          x1          x2 </span></span>
+<span id="cb7-7"><a href="#cb7-7" tabindex="-1"></a><span class="co">#&gt;  0.19906657 -0.09988499 </span></span>
+<span id="cb7-8"><a href="#cb7-8" tabindex="-1"></a><span class="co">#&gt; Predicted response: 10.00034</span></span></code></pre></div>
+<p>Compare analytic/grid/local/global/hybrid solutions within a
+predefined tolerance.</p>
+</div>
+<div id="validate-boundary-behavior" class="section level2">
+<h2>11. Validate boundary behavior</h2>
+<p>Construct a surface whose unconstrained maximum is outside
+<code>[-1,1]^2</code>.</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">1005</span>)</span>
+<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a>db <span class="ot">&lt;-</span> <span class="fu">expand.grid</span>(<span class="at">x1=</span><span class="fu">seq</span>(<span class="sc">-</span><span class="dv">1</span>,<span class="dv">1</span>,<span class="at">length.out=</span><span class="dv">9</span>),<span class="at">x2=</span><span class="fu">seq</span>(<span class="sc">-</span><span class="dv">1</span>,<span class="dv">1</span>,<span class="at">length.out=</span><span class="dv">9</span>))</span>
+<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a>db<span class="sc">$</span>y <span class="ot">&lt;-</span> <span class="dv">10</span> <span class="sc">-</span> (db<span class="sc">$</span>x1<span class="fl">-1.5</span>)<span class="sc">^</span><span class="dv">2</span> <span class="sc">-</span> (db<span class="sc">$</span>x2<span class="fl">-.2</span>)<span class="sc">^</span><span class="dv">2</span> <span class="sc">+</span> <span class="fu">rnorm</span>(<span class="fu">nrow</span>(db),<span class="dv">0</span>,.<span class="dv">02</span>)</span>
+<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a>fb <span class="ot">&lt;-</span> <span class="fu">rsm_fit</span>(db,<span class="st">&quot;y&quot;</span>,<span class="fu">c</span>(<span class="st">&quot;x1&quot;</span>,<span class="st">&quot;x2&quot;</span>),<span class="at">order=</span><span class="dv">2</span>)</span>
+<span id="cb8-5"><a href="#cb8-5" tabindex="-1"></a><span class="fu">rsm_canonical</span>(fb)</span>
+<span id="cb8-6"><a href="#cb8-6" tabindex="-1"></a><span class="co">#&gt; Canonical analysis</span></span>
+<span id="cb8-7"><a href="#cb8-7" tabindex="-1"></a><span class="co">#&gt; Nature: maximum </span></span>
+<span id="cb8-8"><a href="#cb8-8" tabindex="-1"></a><span class="co">#&gt; Stationary point:</span></span>
+<span id="cb8-9"><a href="#cb8-9" tabindex="-1"></a><span class="co">#&gt;        x1        x2 </span></span>
+<span id="cb8-10"><a href="#cb8-10" tabindex="-1"></a><span class="co">#&gt; 1.4912764 0.2046289 </span></span>
+<span id="cb8-11"><a href="#cb8-11" tabindex="-1"></a><span class="co">#&gt; Predicted response: 9.99705 </span></span>
+<span id="cb8-12"><a href="#cb8-12" tabindex="-1"></a><span class="co">#&gt; Inside region: FALSE </span></span>
+<span id="cb8-13"><a href="#cb8-13" tabindex="-1"></a><span class="co">#&gt; Warning: Stationary point lies outside the declared experimental region.</span></span>
+<span id="cb8-14"><a href="#cb8-14" tabindex="-1"></a><span class="fu">rsm_optimize</span>(fb,<span class="at">goal=</span><span class="st">&quot;max&quot;</span>,<span class="at">method=</span><span class="st">&quot;hybrid&quot;</span>,<span class="at">seed=</span><span class="dv">1005</span>)</span>
+<span id="cb8-15"><a href="#cb8-15" tabindex="-1"></a><span class="co">#&gt; rsmFlow optimum</span></span>
+<span id="cb8-16"><a href="#cb8-16" tabindex="-1"></a><span class="co">#&gt; Goal: max  | method: L-BFGS-B </span></span>
+<span id="cb8-17"><a href="#cb8-17" tabindex="-1"></a><span class="co">#&gt;        x1        x2 </span></span>
+<span id="cb8-18"><a href="#cb8-18" tabindex="-1"></a><span class="co">#&gt; 1.0000000 0.2029681 </span></span>
+<span id="cb8-19"><a href="#cb8-19" tabindex="-1"></a><span class="co">#&gt; Predicted response: 9.75391</span></span></code></pre></div>
+<p>Expected: stationary point outside the region and bounded optimum on
+the <code>x1=1</code> edge.</p>
+</div>
+<div id="optimum-uncertainty-coverage" class="section level2">
+<h2>12. Optimum uncertainty coverage</h2>
+<p>For repeated simulated datasets with known interior optimum:</p>
+<ol style="list-style-type: decimal">
+<li>generate data;</li>
+<li>fit model;</li>
+<li>obtain optimum interval/region;</li>
+<li>record whether the true optimum is covered;</li>
+<li>summarize coverage across replicates.</li>
+</ol>
+<p>A nominal 95% procedure should be evaluated by empirical coverage,
+not one attractive interval.</p>
+</div>
+<div id="heteroscedasticity" class="section level2">
+<h2>13. Heteroscedasticity</h2>
+<p>Generate variance increasing with fitted mean and compare:</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a><span class="co"># fit_ols &lt;- rsm_fit(dat,&quot;y&quot;,c(&quot;x1&quot;,&quot;x2&quot;),estimator=&quot;ols&quot;)</span></span>
+<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a><span class="co"># fit_wls &lt;- rsm_fit(dat,&quot;y&quot;,c(&quot;x1&quot;,&quot;x2&quot;),estimator=&quot;wls_power&quot;)</span></span></code></pre></div>
+<p>Compare coefficient bias, prediction error, interval behavior, and
+optimum stability.</p>
+<p>Do not evaluate WLS only by lower residual SSE.</p>
+</div>
+<div id="glm-simulation-validation" class="section level2">
+<h2>14. GLM simulation validation</h2>
+<p>For Poisson, binomial, and Gamma scenarios, freeze true parameters
+and assess:</p>
+<ul>
+<li>coefficient recovery;</li>
+<li>response-scale prediction error;</li>
+<li>dispersion behavior;</li>
+<li>bounded optimum recovery;</li>
+<li>uncertainty coverage;</li>
+<li>failure rate.</li>
+</ul>
+<p>For quasi families, exclude likelihood AIC from methods that require
+a full likelihood.</p>
+</div>
+<div id="nonlinear-parameter-recovery" class="section level2">
+<h2>15. Nonlinear parameter recovery</h2>
+<p>Use known Mitscherlich and Michaelis-Menten surfaces.</p>
+<p>Metrics:</p>
+<ul>
+<li>convergence rate;</li>
+<li>parameter bias;</li>
+<li>RMSE;</li>
+<li>Jacobian condition;</li>
+<li>optimum bias;</li>
+<li>failed refit frequency.</li>
+</ul>
+<p>A nonlinear model can predict well but estimate individual parameters
+poorly. Both dimensions matter.</p>
+</div>
+<div id="ga-versus-multistart" class="section level2">
+<h2>16. GA versus multistart</h2>
+<p>Use identical parameter bounds and frozen datasets.</p>
+<p>Compare:</p>
+<table>
+<thead>
+<tr class="header">
+<th>Metric</th>
+<th>Why it matters</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>convergence frequency</td>
+<td>practical reliability</td>
+</tr>
+<tr class="even">
+<td>final objective</td>
+<td>quality of final estimator start</td>
+</tr>
+<tr class="odd">
+<td>parameter recovery</td>
+<td>scientific interpretation</td>
+</tr>
+<tr class="even">
+<td>runtime</td>
+<td>computational cost</td>
+</tr>
+<tr class="odd">
+<td>multiple minima</td>
+<td>identifiability/search complexity</td>
+</tr>
+</tbody>
+</table>
+<p>Do not compare GA to multistart using different allowed parameter
+regions.</p>
+</div>
+<div id="tier-3-validation" class="section level2">
+<h2>17. Tier-3 validation</h2>
+<p>The surrogate benchmark should use held-out or cross-validated
+performance. In-sample RMSE is insufficient for a claim of predictive
+superiority.</p>
+<p>Recommended metrics:</p>
+<ul>
+<li>repeated CV RMSE/MAE;</li>
+<li>calibration of GP uncertainty where relevant;</li>
+<li>optimum bias relative to known truth;</li>
+<li>optimum variability across training samples;</li>
+<li>sensitivity to tuning;</li>
+<li>computational time.</li>
+</ul>
+</div>
+<div id="one-step-bayesian-optimization-validation" class="section level2">
+<h2>18. One-step Bayesian optimization validation</h2>
+<p>Use synthetic functions with known global maxima. At each simulated
+iteration:</p>
+<ol style="list-style-type: decimal">
+<li>fit GP to observed runs;</li>
+<li>propose candidate by Expected Improvement;</li>
+<li>evaluate the <strong>known synthetic truth</strong> at that
+candidate;</li>
+<li>append the true synthetic response;</li>
+<li>repeat.</li>
+</ol>
+<p>This is appropriate in simulation because the data-generating
+function is known. In a real experiment, step 3 must be a real
+measurement.</p>
+</div>
+<div id="model-comparison-is-multi-criterion" class="section level2">
+<h2>19. Model comparison is multi-criterion</h2>
+<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a><span class="fu">rsm_compare_engines</span>(model1,model2,model3)</span></code></pre></div>
+<p>Do not collapse all evidence to one number.</p>
+<p>For example:</p>
+<table>
+<colgroup>
+<col width="25%" />
+<col width="25%" />
+<col width="25%" />
+<col width="25%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Criterion</th>
+<th>Classical RSM</th>
+<th>Nonlinear</th>
+<th>GP</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>interpretation</td>
+<td>strong</td>
+<td>biological parameters</td>
+<td>weaker/global</td>
+</tr>
+<tr class="even">
+<td>local geometry</td>
+<td>explicit</td>
+<td>model-specific</td>
+<td>numerical</td>
+</tr>
+<tr class="odd">
+<td>uncertainty</td>
+<td>standard/bootstrap</td>
+<td>refit/asymptotic</td>
+<td>predictive GP</td>
+</tr>
+<tr class="even">
+<td>extrapolation</td>
+<td>polynomial risk</td>
+<td>biological form risk</td>
+<td>usually weak</td>
+</tr>
+<tr class="odd">
+<td>optimization</td>
+<td>straightforward</td>
+<td>straightforward</td>
+<td>numerical</td>
+</tr>
+<tr class="even">
+<td>sequential design</td>
+<td>limited</td>
+<td>limited</td>
+<td>strong with acquisition</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="compare-decisions-not-only-models" class="section level2">
+<h2>20. Compare decisions, not only models</h2>
+<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a><span class="fu">rsm_compare_optima</span>(opt1,opt2,opt3)</span></code></pre></div>
+<p>A model comparison is scientifically incomplete when two plausible
+engines produce materially different recommended settings.</p>
+</div>
+<div id="state-of-the-art-positioning" class="section level2">
+<h2>21. State-of-the-art positioning</h2>
+<p><code>rsmFlow</code> is designed to complement rather than replace
+established RSM packages.</p>
+<p>Relevant foundations include:</p>
+<ul>
+<li>classical RSM implementation and teaching in <code>rsm</code> <span class="citation">(Lenth 2009)</span>;</li>
+<li>response-surface design principles <span class="citation">(Box and
+Draper 1959)</span>;</li>
+<li>design selection under variance inflation considerations <span class="citation">(O’Driscoll and Ramirez 2015)</span>;</li>
+<li>confidence sets for optimal factor levels <span class="citation">(Wan et al. 2016)</span>;</li>
+<li>multiple-response desirability <span class="citation">(Derringer and
+Suich 1980)</span>;</li>
+<li>efficient global optimization and Expected Improvement <span class="citation">(Jones et al. 1998)</span>.</li>
+</ul>
+<p>The package’s intended contribution is integration: design-aware
+diagnostics, imperfect designs, classical/GLM/nonlinear surfaces,
+optimum uncertainty, economics, multiresponse decisions, Tier-3
+surrogates, visualization, and teaching in one workflow.</p>
+<p>Use bounded language. Do not claim that no other package can perform
+any individual component.</p>
+</div>
+<div id="reproducibility-record" class="section level2">
+<h2>22. Reproducibility record</h2>
+<p>Every stochastic analysis should preserve:</p>
+<pre class="text"><code>package version
+R version
+platform
+optional backend versions
+seed
+factor bounds
+optimizer settings
+bootstrap B
+candidate grids
+model formula/family</code></pre>
+<p>Capture:</p>
+<div class="sourceCode" id="cb13"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" tabindex="-1"></a><span class="fu">sessionInfo</span>()</span>
+<span id="cb13-2"><a href="#cb13-2" tabindex="-1"></a><span class="co">#&gt; R version 4.6.0 (2026-04-24 ucrt)</span></span>
+<span id="cb13-3"><a href="#cb13-3" tabindex="-1"></a><span class="co">#&gt; Platform: x86_64-w64-mingw32/x64</span></span>
+<span id="cb13-4"><a href="#cb13-4" tabindex="-1"></a><span class="co">#&gt; Running under: Windows 11 x64 (build 26200)</span></span>
+<span id="cb13-5"><a href="#cb13-5" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb13-6"><a href="#cb13-6" tabindex="-1"></a><span class="co">#&gt; Matrix products: default</span></span>
+<span id="cb13-7"><a href="#cb13-7" tabindex="-1"></a><span class="co">#&gt;   LAPACK version 3.12.1</span></span>
+<span id="cb13-8"><a href="#cb13-8" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb13-9"><a href="#cb13-9" tabindex="-1"></a><span class="co">#&gt; locale:</span></span>
+<span id="cb13-10"><a href="#cb13-10" tabindex="-1"></a><span class="co">#&gt; [1] LC_COLLATE=Portuguese_Brazil.utf8  LC_CTYPE=Portuguese_Brazil.utf8   </span></span>
+<span id="cb13-11"><a href="#cb13-11" tabindex="-1"></a><span class="co">#&gt; [3] LC_MONETARY=Portuguese_Brazil.utf8 LC_NUMERIC=C                      </span></span>
+<span id="cb13-12"><a href="#cb13-12" tabindex="-1"></a><span class="co">#&gt; [5] LC_TIME=Portuguese_Brazil.utf8    </span></span>
+<span id="cb13-13"><a href="#cb13-13" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb13-14"><a href="#cb13-14" tabindex="-1"></a><span class="co">#&gt; time zone: America/Sao_Paulo</span></span>
+<span id="cb13-15"><a href="#cb13-15" tabindex="-1"></a><span class="co">#&gt; tzcode source: internal</span></span>
+<span id="cb13-16"><a href="#cb13-16" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb13-17"><a href="#cb13-17" tabindex="-1"></a><span class="co">#&gt; attached base packages:</span></span>
+<span id="cb13-18"><a href="#cb13-18" tabindex="-1"></a><span class="co">#&gt; [1] stats     graphics  grDevices utils     datasets  methods   base     </span></span>
+<span id="cb13-19"><a href="#cb13-19" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb13-20"><a href="#cb13-20" tabindex="-1"></a><span class="co">#&gt; other attached packages:</span></span>
+<span id="cb13-21"><a href="#cb13-21" tabindex="-1"></a><span class="co">#&gt; [1] rsmFlow_0.2.0</span></span>
+<span id="cb13-22"><a href="#cb13-22" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb13-23"><a href="#cb13-23" tabindex="-1"></a><span class="co">#&gt; loaded via a namespace (and not attached):</span></span>
+<span id="cb13-24"><a href="#cb13-24" tabindex="-1"></a><span class="co">#&gt;  [1] crayon_1.5.3     cli_3.6.6        knitr_1.51       rlang_1.3.0     </span></span>
+<span id="cb13-25"><a href="#cb13-25" tabindex="-1"></a><span class="co">#&gt;  [5] xfun_0.60        otel_0.2.0       jsonlite_2.0.0   htmltools_0.5.9 </span></span>
+<span id="cb13-26"><a href="#cb13-26" tabindex="-1"></a><span class="co">#&gt;  [9] sass_0.4.10      brio_1.1.5       rmarkdown_2.31   evaluate_1.0.5  </span></span>
+<span id="cb13-27"><a href="#cb13-27" tabindex="-1"></a><span class="co">#&gt; [13] jquerylib_0.1.4  fastmap_1.2.0    yaml_2.3.12      foreach_1.5.2   </span></span>
+<span id="cb13-28"><a href="#cb13-28" tabindex="-1"></a><span class="co">#&gt; [17] lifecycle_1.0.5  compiler_4.6.0   codetools_0.2-20 Rcpp_1.1.2      </span></span>
+<span id="cb13-29"><a href="#cb13-29" tabindex="-1"></a><span class="co">#&gt; [21] testthat_3.3.2   digest_0.6.39    R6_2.6.1         magrittr_2.0.5  </span></span>
+<span id="cb13-30"><a href="#cb13-30" tabindex="-1"></a><span class="co">#&gt; [25] bslib_0.12.0     tools_4.6.0      iterators_1.0.14 GA_3.2.5        </span></span>
+<span id="cb13-31"><a href="#cb13-31" tabindex="-1"></a><span class="co">#&gt; [29] cachem_1.1.0</span></span></code></pre></div>
+<p>For package development also preserve <code>DESCRIPTION</code>,
+<code>NAMESPACE</code>, test logs, and <code>00check.log</code>.</p>
+</div>
+<div id="dependency-aware-validation" class="section level2">
+<h2>23. Dependency-aware validation</h2>
+<p>Optional packages currently used by specialist modules include
+examples such as:</p>
+<pre class="text"><code>rsm
+GA
+MASS
+minpack.lm
+nlme
+mgcv
+DiceKriging
+ranger
+nnet
+mco
+plotly
+ggplot2
+OptimaRegion
+vdg
+AlgDesign</code></pre>
+<p>Not every suggested package is required for the core workflow. Test
+each optional backend explicitly if release documentation claims support
+for it.</p>
+</div>
+<div id="shiny-validation" class="section level2">
+<h2>24. Shiny validation</h2>
+<p>The optional Shiny interface should be tested against the same
+API:</p>
+<ol style="list-style-type: decimal">
+<li>import data;</li>
+<li>fit classical model;</li>
+<li>compare output with direct <code>rsm_fit()</code>;</li>
+<li>run diagnostics;</li>
+<li>optimize;</li>
+<li>compare coordinates with direct <code>rsm_optimize()</code>;</li>
+<li>export/report if enabled;</li>
+<li>verify informative errors when optional packages are absent.</li>
+</ol>
+<p>The GUI should never silently change the statistical method.</p>
+</div>
+<div id="documentation-validation" class="section level2">
+<h2>25. Documentation validation</h2>
+<p>Every exported function should have:</p>
+<ul>
+<li>an Rd page;</li>
+<li>valid argument documentation;</li>
+<li>realistic examples;</li>
+<li>consistent names across vignettes;</li>
+<li>no stale function calls.</li>
+</ul>
+<p>The long vignettes should be statically audited for exported symbols
+before runtime rendering.</p>
+</div>
+<div id="local-release-sequence" class="section level2">
+<h2>26. Local release sequence</h2>
+<p>Recommended order:</p>
+<pre class="text"><code>parse R files
+→ install dependencies
+→ source smoke test
+→ run testthat
+→ run examples
+→ render vignettes
+→ run simulation battery
+→ inspect numerical results
+→ launch Shiny
+→ R CMD build
+→ R CMD check --as-cran
+→ clean-library install</code></pre>
+<p>Do not report full validation before the relevant gates have actually
+run.</p>
+</div>
+<div id="failure-classification" class="section level2">
+<h2>27. Failure classification</h2>
+<div id="infrastructure-failure" class="section level3">
+<h3>Infrastructure failure</h3>
+<p>Examples: R not found, compiler unavailable, system library
+missing.</p>
+</div>
+<div id="packaging-failure" class="section level3">
+<h3>Packaging failure</h3>
+<p>Examples: malformed DESCRIPTION, missing export, broken Rd, missing
+file.</p>
+</div>
+<div id="runtime-failure" class="section level3">
+<h3>Runtime failure</h3>
+<p>Examples: function error, wrong class, backend API
+incompatibility.</p>
+</div>
+<div id="numerical-failure" class="section level3">
+<h3>Numerical failure</h3>
+<p>Examples: optimizer converges to wrong known solution, unstable
+predictions, wrong Hessian sign.</p>
+</div>
+<div id="methodological-failure" class="section level3">
+<h3>Methodological failure</h3>
+<p>Examples: interval undercoverage, design criterion not matching its
+documented definition, biased nonlinear parameter recovery.</p>
+<p>The remedy depends on the class of failure.</p>
+</div>
+</div>
+<div id="three-model-selection-case-studies" class="section level2">
+<h2>28. Three model-selection case studies</h2>
+<div id="case-a-gaussian-yield-data-adequate-so-model" class="section level3">
+<h3>Case A: Gaussian yield data, adequate SO model</h3>
+<p>Prefer classical RSM unless an alternative meaningfully improves
+prediction or decision stability.</p>
+</div>
+<div id="case-b-overdispersed-pest-counts" class="section level3">
+<h3>Case B: overdispersed pest counts</h3>
+<p>Compare Poisson and Negative Binomial using dispersion, diagnostics,
+prediction, and response-scale optimum.</p>
+</div>
+<div id="case-c-saturating-nutrient-response" class="section level3">
+<h3>Case C: saturating nutrient response</h3>
+<p>Compare quadratic and Mitscherlich models using diagnostics,
+biological parameter plausibility, cross-validation, and optimum
+location.</p>
+</div>
+</div>
+<div id="a-minimum-evidence-table-for-a-manuscript" class="section level2">
+<h2>29. A minimum evidence table for a manuscript</h2>
+<table>
+<thead>
+<tr class="header">
+<th>Domain</th>
+<th>Evidence to report</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Design</td>
+<td>region, replication, audit/precision</td>
+</tr>
+<tr class="even">
+<td>Model</td>
+<td>family/equation/order and hierarchy</td>
+</tr>
+<tr class="odd">
+<td>Diagnostics</td>
+<td>residual/dispersion/identifiability</td>
+</tr>
+<tr class="even">
+<td>Geometry</td>
+<td>canonical class where relevant</td>
+</tr>
+<tr class="odd">
+<td>Decision</td>
+<td>bounded optimum and boundary status</td>
+</tr>
+<tr class="even">
+<td>Uncertainty</td>
+<td>method, B, intervals/region</td>
+</tr>
+<tr class="odd">
+<td>Alternatives</td>
+<td>sensitivity/model comparison</td>
+</tr>
+<tr class="even">
+<td>Economics/multiresponse</td>
+<td>assumptions/preferences</td>
+</tr>
+<tr class="odd">
+<td>Reproducibility</td>
+<td>version, seed, backend</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="common-validation-mistakes" class="section level2">
+<h2>30. Common validation mistakes</h2>
+<ol style="list-style-type: decimal">
+<li>Treating package installation as scientific validation.</li>
+<li>Changing simulation seeds after seeing poor performance.</li>
+<li>Reporting only successful bootstrap replicates without
+failures.</li>
+<li>Ranking models by one information criterion.</li>
+<li>Using in-sample Tier-3 error as predictive evidence.</li>
+<li>Claiming exact I-optimal or confidence-region behavior without
+backend/numerical verification.</li>
+<li>Ignoring version-specific optional backend APIs.</li>
+<li>Calling static documentation checks runtime validation.</li>
+<li>Assuming Shiny output is correct because the interface opens.</li>
+</ol>
+</div>
+<div id="final-release-checklist-for-the-vignette-ecosystem" class="section level2">
+<h2>31. Final release checklist for the vignette ecosystem</h2>
+<ul class="task-list">
+<li><label><input type="checkbox"></input>Eight final Rmd vignettes
+present.</label></li>
+<li><label><input type="checkbox"></input>Old redundant short Rmd files
+removed from <code>vignettes/</code>.</label></li>
+<li><label><input type="checkbox"></input>Shared <code>references.bib</code>
+retained.</label></li>
+<li><label><input type="checkbox"></input><code>VIGNETTE_ORGANIZATION.md</code>
+present.</label></li>
+<li><label><input type="checkbox"></input>Every public function assigned to a
+primary vignette owner.</label></li>
+<li><label><input type="checkbox"></input>No unresolved exported-symbol
+references.</label></li>
+<li><label><input type="checkbox"></input>No missing citation
+keys.</label></li>
+<li><label><input type="checkbox"></input>Code fences balanced.</label></li>
+<li><label><input type="checkbox"></input>Runtime examples executed locally
+before release.</label></li>
+<li><label><input type="checkbox"></input><code>R CMD check --as-cran</code>
+passed before distribution claims.</label></li>
+</ul>
+</div>
+<div id="closing-perspective" class="section level2">
+<h2>32. Closing perspective</h2>
+<p>The purpose of validation is not to accumulate check marks. It is to
+establish that the sequence</p>
+<p><strong>design -&gt; model -&gt; diagnosis -&gt; optimization -&gt;
+uncertainty -&gt; decision</strong></p>
+<p>behaves correctly under conditions where the truth or expected
+behavior is known, and remains transparent when the data are
+imperfect.</p>
+<p>That evidence is what allows <code>rsmFlow</code> to function
+simultaneously as a teaching package and an advanced scientific
+workflow.</p>
+<div id="refs" class="references csl-bib-body hanging-indent">
+<div id="ref-BoxDraper1959" class="csl-entry">
+Box, G. E. P., and Norman R. Draper. 1959. <span>“A Basis for the
+Selection of a Response Surface Design.”</span> <em>Journal of the
+American Statistical Association</em> 54 (287): 622–54. <a href="https://doi.org/10.1080/01621459.1959.10501525">https://doi.org/10.1080/01621459.1959.10501525</a>.
+</div>
+<div id="ref-DerringerSuich1980" class="csl-entry">
+Derringer, George, and Ronald Suich. 1980. <span>“Simultaneous
+Optimization of Several Response Variables.”</span> <em>Journal of
+Quality Technology</em> 12 (4): 214–19. <a href="https://doi.org/10.1080/00224065.1980.11980968">https://doi.org/10.1080/00224065.1980.11980968</a>.
+</div>
+<div id="ref-JonesSchonlauWelch1998" class="csl-entry">
+Jones, Donald R., Matthias Schonlau, and William J. Welch. 1998.
+<span>“Efficient Global Optimization of Expensive Black-Box
+Functions.”</span> <em>Journal of Global Optimization</em> 13 (4):
+455–92. <a href="https://doi.org/10.1023/A:1008306431147">https://doi.org/10.1023/A:1008306431147</a>.
+</div>
+<div id="ref-Lenth2009" class="csl-entry">
+Lenth, Russell V. 2009. <span>“Response-Surface Methods in r, Using
+Rsm.”</span> <em>Journal of Statistical Software</em> 32 (7): 1–17. <a href="https://doi.org/10.18637/jss.v032.i07">https://doi.org/10.18637/jss.v032.i07</a>.
+</div>
+<div id="ref-ODriscoll2015" class="csl-entry">
+O’Driscoll, Diarmuid, and Donald E. Ramirez. 2015. <span>“Response
+Surface Designs Using the Generalized Variance Inflation
+Factors.”</span> <em>Cogent Mathematics</em> 2 (1): 1053728. <a href="https://doi.org/10.1080/23311835.2015.1053728">https://doi.org/10.1080/23311835.2015.1053728</a>.
+</div>
+<div id="ref-Wan2016" class="csl-entry">
+Wan, Fang, Wei Liu, Frank Bretz, and Yang Han. 2016. <span>“Confidence
+Sets for Optimal Factor Levels of a Response Surface.”</span>
+<em>Biometrics</em> 72 (4): 1285–93. <a href="https://doi.org/10.1111/biom.12500">https://doi.org/10.1111/biom.12500</a>.
+</div>
+</div>
+</div>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

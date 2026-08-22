@@ -15,7 +15,7 @@ knitr::opts_chunk$set(
   fig.width = 7,
   fig.height = 5,
   dpi = 120,
-  eval = FALSE
+  eval = TRUE
 )
 ```
 

@@ -160,11 +160,15 @@ rsm_glm_lack_of_fit <- function(object) {
   rhs <- if (is.null(object$block)) ".rsmFlow_cell" else paste0("`", object$block, "` + .rsmFlow_cell")
   if (isTRUE(object$offset_used)) rhs <- paste0(rhs, " + offset(.rsmFlow_offset)")
   ffull <- stats::as.formula(paste0("`", object$response, "` ~ ", rhs), env=environment(object$formula))
-  w <- if (".rsmFlow_prior_weight" %in% names(dat)) dat$.rsmFlow_prior_weight else NULL
+  # Add weights to data frame to avoid environment lookup issues
+  has_w <- ".rsmFlow_prior_weight" %in% names(dat)
+  if (has_w) {
+    dat$.rsmFlow_lof_w <- dat[[".rsmFlow_prior_weight"]]
+  }
   if (inherits(object$model, "negbin")) {
-    full <- MASS::glm.nb(ffull, data = dat, weights = w)
+    full <- if (has_w) MASS::glm.nb(ffull, data = dat, weights = .rsmFlow_lof_w) else MASS::glm.nb(ffull, data = dat)
   } else {
-    full <- stats::glm(ffull, family = stats::family(object$model), data = dat, weights = w)
+    full <- if (has_w) stats::glm(ffull, family = stats::family(object$model), data = dat, weights = .rsmFlow_lof_w) else stats::glm(ffull, family = stats::family(object$model), data = dat)
   }
   ddev <- stats::deviance(object$model) - stats::deviance(full)
   ddf <- stats::df.residual(object$model) - stats::df.residual(full)

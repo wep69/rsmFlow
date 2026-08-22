@@ -9,7 +9,7 @@ bibliography: references.bib
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(collapse=TRUE, comment="#>", fig.width=7, fig.height=5, dpi=120, eval=FALSE)
+knitr::opts_chunk$set(collapse=TRUE, comment="#>", fig.width=7, fig.height=5, dpi=120, eval=TRUE)
 ```
 
 # Classical RSM, geometry, and diagnostics

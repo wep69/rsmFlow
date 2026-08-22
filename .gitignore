@@ -28,7 +28,6 @@ python_version/
 *.pdf
 
 # === DSH / workspace artifacts ===
-docs/
 INSTALL.md
 RELATORIO_VALIDACAO_RSMFLOW.md
 rsmFlow_VALIDACAO_LOCAL_DETALHADA.md

@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>rsmFlow — Vignettes</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: #f8f9fa; color: #1a1a1a; padding: 2rem; max-width: 900px; margin: 0 auto; }
+        h1 { font-size: 2rem; margin-bottom: 0.5rem; color: #2563eb; }
+        .subtitle { color: #6b7280; margin-bottom: 2rem; font-size: 1.1rem; }
+        .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.2rem; margin-bottom: 1rem; transition: box-shadow 0.15s; }
+        .card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        .card a { text-decoration: none; color: #1a1a1a; font-weight: 600; font-size: 1.05rem; }
+        .card a:hover { color: #2563eb; }
+        .card .desc { color: #6b7280; font-size: 0.9rem; margin-top: 0.3rem; }
+        .badge { display: inline-block; font-size: 0.75rem; padding: 2px 8px; border-radius: 4px; font-weight: 600; margin-right: 6px; }
+        .badge-beginner { background: #dcfce7; color: #166534; }
+        .badge-intermediate { background: #fef9c3; color: #854d0e; }
+        .badge-advanced { background: #fee2e2; color: #991b1b; }
+        .badge-all { background: #dbeafe; color: #1e40af; }
+        .footer { margin-top: 2rem; color: #9ca3af; font-size: 0.85rem; text-align: center; }
+        .footer a { color: #2563eb; }
+    </style>
+</head>
+<body>
+    <h1>📊 rsmFlow Vignettes</h1>
+    <p class="subtitle">Design-Aware Response Surface Modelling, Optimization and Decision Support</p>
+
+    <div class="card">
+        <a href="00-foundations-to-advanced.html">00 — Foundations to Advanced Response-Surface Workflows</a>
+        <div class="desc">Integrated starting tutorial: design → audit → fit → optimize → Tier 3 → Shiny</div>
+        <span class="badge badge-all">All users</span>
+    </div>
+
+    <div class="card">
+        <a href="01-design-audit-and-augmentation.html">01 — Design Audit, Prediction Precision, and Augmentation</a>
+        <div class="desc">Experimental design, coding, non-orthogonality, FDS/VDG, augmentation</div>
+        <span class="badge badge-beginner">Beginner</span>
+        <span class="badge badge-intermediate">Intermediate</span>
+    </div>
+
+    <div class="card">
+        <a href="02-classical-rsm-geometry-diagnostics.html">02 — Classical RSM, Geometry, and Diagnostics</a>
+        <div class="desc">FO/SO models, hierarchy, residual diagnostics, lack of fit, canonical analysis</div>
+        <span class="badge badge-beginner">Beginner</span>
+        <span class="badge badge-intermediate">Intermediate</span>
+    </div>
+
+    <div class="card">
+        <a href="03-glm-and-nonlinear-surfaces.html">03 — GLM and Nonlinear Response Surfaces</a>
+        <div class="desc">Non-Gaussian GLM-RSM and biologically interpretable nonlinear surfaces</div>
+        <span class="badge badge-intermediate">Intermediate</span>
+        <span class="badge badge-advanced">Advanced</span>
+    </div>
+
+    <div class="card">
+        <a href="04-optimization-uncertainty-economics.html">04 — Optimization, Optimum Uncertainty, and Economics</a>
+        <div class="desc">Bounded/global optimization, optimum uncertainty, near-optimal regions, economic optimum</div>
+        <span class="badge badge-intermediate">Intermediate</span>
+        <span class="badge badge-advanced">Advanced</span>
+    </div>
+
+    <div class="card">
+        <a href="05-multiresponse-and-tier3.html">05 — Multiresponse Optimization and Tier-3 Surrogates</a>
+        <div class="desc">Desirability, Pareto/NSGA-II, GP/GAM/TPS/RF/NN, Bayesian optimization</div>
+        <span class="badge badge-advanced">Advanced</span>
+    </div>
+
+    <div class="card">
+        <a href="06-visualization-shiny-and-teaching.html">06 — Visualization, Shiny, and Teaching Workflows</a>
+        <div class="desc">Static/interactive visualization, Shiny-to-code bridge, teaching sequences</div>
+        <span class="badge badge-all">All users</span>
+    </div>
+
+    <div class="card">
+        <a href="07-validation-reproducibility-and-method-selection.html">07 — Validation, Reproducibility, and Method Selection</a>
+        <div class="desc">Simulation validation, model comparison, reproducibility, release gates</div>
+        <span class="badge badge-advanced">Advanced</span>
+    </div>
+
+    <div class="footer">
+        <p>Package: <a href="https://github.com/wep69/rsmFlow">rsmFlow</a> v0.2.0 · 
+        Authors: Walter Esfrain Pereira &amp; Magali Haidee Pereira Martinez</p>
+    </div>
+</body>
+</html>

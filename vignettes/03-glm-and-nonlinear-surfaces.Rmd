@@ -9,7 +9,7 @@ bibliography: references.bib
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(collapse=TRUE, comment="#>", fig.width=7, fig.height=5, dpi=120, eval=FALSE)
+knitr::opts_chunk$set(collapse=TRUE, comment="#>", fig.width=7, fig.height=5, dpi=120, eval=TRUE)
 ```
 
 # GLM and nonlinear response surfaces
@@ -349,9 +349,8 @@ start_ga <- rsm_nonlinear_start_ga(
   data=nd,
   formula=form,
   start_bounds=list(
-    A=c(8,15),
-    kN=c(0.001,0.10),
-    kP=c(0.001,0.10)
+    lower=c(A=8, kN=0.001, kP=0.001),
+    upper=c(A=15, kN=0.10, kP=0.10)
   ),
   seed=512,
   ga_control=list(popSize=100,maxiter=400,run=80)
@@ -366,9 +365,8 @@ start_ms <- rsm_nonlinear_start_multistart(
   data=nd,
   formula=form,
   start_bounds=list(
-    A=c(8,15),
-    kN=c(0.001,0.10),
-    kP=c(0.001,0.10)
+    lower=c(A=8, kN=0.001, kP=0.001),
+    upper=c(A=15, kN=0.10, kP=0.10)
   ),
   n_start=1000,
   seed=512
@@ -480,7 +478,8 @@ custom_fit <- rsm_nonlinear_fit(
   formula=custom_formula,
   start="ga",
   start_bounds=list(
-    A=c(8,15), k1=c(.001,.1), k2=c(.001,.1), c0=c(-2,2)
+    lower=c(A=8, k1=.001, k2=.001, c0=-2),
+    upper=c(A=15, k1=.1, k2=.1, c0=2)
   ),
   seed=517
 )
@@ -512,7 +511,7 @@ fit_lm <- rsm_nonlinear_fit(
 
 Generalized nonlinear least squares via optional `nlme`:
 
-```{r}
+```{r, eval=FALSE}
 fit_gnls <- rsm_nonlinear_fit(
   nd,"Yield",c("N","P"),
   model="mitscherlich2_product",

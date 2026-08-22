@@ -9,7 +9,7 @@ bibliography: references.bib
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(collapse=TRUE, comment="#>", fig.width=7, fig.height=5, dpi=120, eval=FALSE)
+knitr::opts_chunk$set(collapse=TRUE, comment="#>", fig.width=7, fig.height=5, dpi=120, eval=TRUE)
 ```
 
 # Visualization, Shiny, and teaching workflows
@@ -228,7 +228,7 @@ A Pareto plot should highlight non-dominated solutions and label response direct
 
 ## 16. Optimum uncertainty figure
 
-```{r}
+```{r, eval=FALSE}
 opt <- rsm_optimize(fit,goal="max",method="hybrid",seed=902)
 unc <- rsm_optimum_ci(fit,optimum=opt,B=999,seed=902)
 rsm_plot_optimum_uncertainty(unc,x="N",y="K")
@@ -262,7 +262,7 @@ The sequence mirrors the evidence chain.
 
 ## 19. Launch the app
 
-```{r}
+```{r, eval=FALSE}
 run_rsm_app()
 ```
 
@@ -323,7 +323,7 @@ Students should learn to copy the conceptual sequence from the GUI into a reprod
 
 Equivalent R:
 
-```{r}
+```{r, eval=FALSE}
 opt <- rsm_optimize(fit,goal="max",method="hybrid",seed=903)
 unc <- rsm_optimum_ci(fit,optimum=opt,B=999,seed=903)
 near <- rsm_near_optimal(fit,optimum=opt,tolerance=.05,seed=903)
