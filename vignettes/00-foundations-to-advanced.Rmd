@@ -611,7 +611,7 @@ Target optimization is appropriate for process variables such as pH, moisture, h
 
 ## 28. Bootstrap optimum uncertainty
 
-```{r}
+```{r, eval=FALSE}
 unc <- rsm_optimum_ci(
   fit_so,
   optimum = opt,
@@ -629,7 +629,7 @@ Formal confidence sets for optimum factor levels are a recognized inference prob
 
 ## 29. Joint region and optimum cloud
 
-```{r}
+```{r, eval=FALSE}
 region <- rsm_optimum_region(
   unc,
   conf = .95,
@@ -638,7 +638,7 @@ region <- rsm_optimum_region(
 plot(region)
 ```
 
-```{r}
+```{r, eval=FALSE}
 rsm_plot_optimum_uncertainty(unc)
 ```
 
@@ -661,7 +661,7 @@ A near-optimal region can reveal practical alternatives that sacrifice very litt
 
 ## 31. Optimum stability
 
-```{r}
+```{r, eval=FALSE}
 stability <- rsm_optimum_stability(
   unc,
   fit_so,
@@ -795,7 +795,7 @@ rate_fit <- rsm_glm_fit(
 
 ## 38. GLM canonical and optimum uncertainty
 
-```{r}
+```{r, eval=FALSE}
 rsm_glm_canonical(pois)
 
 pois_opt <- rsm_optimize(
@@ -873,7 +873,7 @@ fit_mm <- rsm_nonlinear_fit(
 
 ## 42. Custom nonlinear model
 
-```{r}
+```{r, eval=FALSE}
 custom_formula <- Yield ~
   A*(1-exp(-kN*N))*exp(-kW*(Water-Wopt)^2)
 
@@ -909,7 +909,7 @@ A low residual error does not guarantee that nonlinear parameters are well ident
 
 ## 44. Generalized nonlinear least squares
 
-```{r}
+```{r, eval=FALSE}
 if (requireNamespace("nlme", quietly=TRUE)) {
   gnls_fit <- rsm_nonlinear_fit(
     nl_dat,
@@ -1128,7 +1128,7 @@ cv
 
 When experimental blocks should remain intact:
 
-```{r}
+```{r, eval=FALSE}
 cv_block <- rsm_cv(
   blocked_fit,
   folds = 5,
@@ -1142,7 +1142,7 @@ Random row-wise cross-validation is not universally appropriate for designed exp
 
 ## 54. Compare engines and decisions separately
 
-```{r}
+```{r, eval=FALSE}
 rsm_compare_engines(
   fit_so,
   fit_nl,
@@ -1150,7 +1150,7 @@ rsm_compare_engines(
 )
 ```
 
-```{r}
+```{r, eval=FALSE}
 opt_classical <- rsm_optimize(fit_so, seed=260820)
 opt_nonlinear <- rsm_optimize(fit_nl, seed=260820)
 opt_gp <- rsm_surrogate_optimize(gp, seed=260820)
@@ -1166,7 +1166,7 @@ Similar predictive error can produce different recommendations. Conversely, very
 
 ## 55. Bayesian optimization
 
-```{r}
+```{r, eval=FALSE}
 if (requireNamespace("DiceKriging", quietly=TRUE)) {
   next_run <- rsm_bayes_opt(
     dat,
@@ -1268,7 +1268,7 @@ plot(dsurf)
 
 ## 60. Shiny as a thin teaching layer
 
-```{r}
+```{r, eval=FALSE}
 if (requireNamespace("shiny", quietly=TRUE)) {
   run_rsm_app()
 }
@@ -1299,7 +1299,7 @@ Instructional explanation should reinforce the numerical object, not replace it.
 
 ## 62. Beginner workflow: classical RSM
 
-```{r}
+```{r, eval=FALSE}
 library(rsmFlow)
 
 dat <- read.csv(
@@ -1325,7 +1325,7 @@ rsm_plot(fit,"contour",optimum=opt)
 
 ## 63. Intermediate workflow: nonlinear biology
 
-```{r}
+```{r, eval=FALSE}
 fit_nl <- rsm_nonlinear_fit(
   nl_dat,
   "Yield",
@@ -1352,7 +1352,7 @@ eco_nl <- rsm_economic_optimum(
 
 ## 64. Advanced workflow: multiresponse plus Tier 3
 
-```{r}
+```{r, eval=FALSE}
 res <- rsm_multiopt(
   list(fit_y,fit_q,fit_d),
   goals=c("max","target","min"),
